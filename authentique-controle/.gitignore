@@ -1,0 +1,6 @@
+node_modules/
+cloudflared.exe
+.DS_Store
+*.log
+*.db-shm
+*.db-wal

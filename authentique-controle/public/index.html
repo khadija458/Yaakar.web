@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authentique Contrôle - Vérification & Gestion des Tickets</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- PWA Manifest & Mobile Configuration -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1e3a8a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Authentique">
+  <link rel="apple-touch-icon" href="/images/shield-badge.jpg">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- =========================================================================
+       EN-TÊTE PRINCIPAL (HEADER)
+       ========================================================================= -->
+  <header class="app-header">
+    <div class="header-container">
+      <a href="#" class="brand-wrapper" id="brand-link">
+        <div class="brand-avatar-3d">
+          <img src="/images/shield-badge.jpg" alt="Logo Authentique Contrôle">
+        </div>
+        <div class="brand-text">
+          <h1>Authentique Contrôle</h1>
+          <p>Certification & Vérification de Tickets</p>
+        </div>
+      </a>
+
+      <div class="header-actions">
+        <div class="status-indicator">
+          <span class="status-dot"></span>
+          <span>Base connectée</span>
+        </div>
+
+        <div id="header-user-badge" style="display: none; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.1); padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.8125rem;">
+          <i class="fa-solid fa-user-shield" style="color: #60a5fa;"></i>
+          <span id="header-user-name" style="font-weight: 600;">admin</span>
+        </div>
+
+        <button id="btn-install-pwa" class="btn btn-sm" style="display: none; background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: #ffffff; border: none; font-weight: 700;">
+          <i class="fa-solid fa-download"></i> Installer l'App
+        </button>
+
+        <button id="btn-header-login" class="btn btn-secondary btn-sm">
+          <i class="fa-solid fa-lock"></i> Connexion Admin
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       BARRE DE NAVIGATION
+       ========================================================================= -->
+  <nav class="app-nav">
+    <div class="nav-container">
+      <button class="nav-tab active" data-tab="verify">
+        <i class="fa-solid fa-shield-halved"></i> Vérifier un ticket
+      </button>
+      <button class="nav-tab" data-tab="dashboard">
+        <i class="fa-solid fa-chart-pie"></i> Tableau de bord
+      </button>
+      <button class="nav-tab" data-tab="tickets">
+        <i class="fa-solid fa-ticket"></i> Gestion des tickets
+      </button>
+      <button class="nav-tab" data-tab="history">
+        <i class="fa-solid fa-clock-rotate-left"></i> Historique
+      </button>
+      <button class="nav-tab" data-tab="settings">
+        <i class="fa-solid fa-gear"></i> Paramètres
+      </button>
+    </div>
+  </nav>
+
+  <!-- =========================================================================
+       CONTENU PRINCIPAL DE L'APPLICATION
+       ========================================================================= -->
+  <main class="app-main">
+
+    <!-- ---------------------------------------------------------------------
+         SECTION 1 : VÉRIFIER UN TICKET (Vérification instantanée)
+         --------------------------------------------------------------------- -->
+    <section id="section-verify" class="view-section active">
+      <div class="verify-hero-card">
+        <!-- Bannière Visuelle Haute Définition -->
+        <div class="hero-visual-banner">
+          <img src="/images/hero-banner.jpg" alt="Vérification de Ticket Sécurisé">
+          <div class="hero-banner-overlay">
+            <div class="hero-badge-chips">
+              <span class="hero-chip"><i class="fa-solid fa-shield-halved"></i> Contrôle en Temps Réel</span>
+              <span class="hero-chip"><i class="fa-solid fa-lock"></i> Base Persistante SQLite</span>
+              <span class="hero-chip"><i class="fa-solid fa-bolt"></i> Instantané</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="verify-hero-header">
+          <div class="verify-badge-icon">
+            <i class="fa-solid fa-fingerprint"></i>
+          </div>
+          <h2>Certification & Contrôle d'Authenticité</h2>
+          <p>Saisissez ou scannez le code unique d'un ticket pour certifier immédiatement s'il existe et s'il est valide dans le système.</p>
+        </div>
+
+        <div class="verify-body">
+          <form id="verify-form" autocomplete="off">
+            <div class="verify-input-group">
+              <label for="verify-code-input" class="verify-label">Code unique du ticket</label>
+              <div class="input-with-actions">
+                <i class="fa-solid fa-barcode input-icon-prefix"></i>
+                <input
+                  type="text"
+                  id="verify-code-input"
+                  class="verify-input"
+                  placeholder="Ex : AUTH-2026-VIP"
+                  autofocus
+                  spellcheck="false"
+                >
+                <button type="button" id="btn-clear-code" class="btn-clear-input" title="Effacer la saisie">
+                  <i class="fa-solid fa-circle-xmark"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="verify-btn-row">
+              <button type="submit" id="btn-verify-action" class="btn-verify-primary">
+                <i class="fa-solid fa-magnifying-glass-check"></i> Vérifier le ticket
+              </button>
+            </div>
+          </form>
+
+          <!-- Tests rapides en 1 clic -->
+          <div class="quick-test-section">
+            <span style="font-weight: 600;"><i class="fa-solid fa-bolt" style="color: #f59e0b;"></i> Tests rapides :</span>
+            <button type="button" class="test-pill valid" data-code="AUTH-2026-VIP" title="Code authentique existant">
+              <i class="fa-solid fa-check"></i> AUTH-2026-VIP
+            </button>
+            <button type="button" class="test-pill valid" data-code="PASS-8842-STD" title="Code authentique existant">
+              <i class="fa-solid fa-check"></i> PASS-8842-STD
+            </button>
+            <button type="button" class="test-pill invalid" data-code="FAUX-9999-XYZ" title="Code inexistant pour tester le rejet">
+              <i class="fa-solid fa-xmark"></i> FAUX-9999-XYZ
+            </button>
+          </div>
+
+          <!-- Zone de résultat dynamique -->
+          <div id="verification-result" class="verification-result-box">
+            <!-- Sera alimenté dynamiquement en vert ou rouge via app.js -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Raccourci vers la gestion des tickets (Ajout, Modification, Suppression) -->
+      <div style="max-width: 780px; margin: 1.5rem auto 0; background: #ffffff; border: 1px solid #cbd5e1; border-radius: var(--radius-xl); padding: 1.25rem 1.75rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; box-shadow: var(--shadow-sm);">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <div style="width: 44px; height: 44px; background: #eff6ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #2563eb; font-size: 1.25rem; flex-shrink: 0;">
+            <i class="fa-solid fa-ticket-simple"></i>
+          </div>
+          <div>
+            <div style="font-weight: 700; color: #0f172a; font-size: 0.9375rem;">Ajouter, Modifier ou Supprimer un ticket ?</div>
+            <div style="font-size: 0.8125rem; color: #64748b;">Accédez à l'espace complet de gestion pour créer, éditer ou retirer des tickets.</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="switchTab('tickets')" style="font-weight: 600;">
+            <i class="fa-solid fa-table-list"></i> Liste des tickets
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openCreateTicketModal()" style="font-weight: 600;">
+            <i class="fa-solid fa-circle-plus"></i> + Ajouter un ticket
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------------
+         SECTION 2 : TABLEAU DE BORD (Statistiques & Activité)
+         --------------------------------------------------------------------- -->
+    <section id="section-dashboard" class="view-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title"><i class="fa-solid fa-chart-line" style="color: #2563eb;"></i> Tableau de bord</h2>
+          <p class="section-desc">Vue d'ensemble en temps réel des tickets enregistrés et des contrôles d'authenticité.</p>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="loadStats()">
+          <i class="fa-solid fa-rotate-right"></i> Actualiser
+        </button>
+      </div>
+
+      <!-- Grille des 4 indicateurs clés -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-info">
+            <h3>Tickets Enregistrés</h3>
+            <div id="stat-total-tickets" class="stat-number">0</div>
+          </div>
+          <div class="stat-icon blue">
+            <i class="fa-solid fa-ticket"></i>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-info">
+            <h3>Vérifications Effectuées</h3>
+            <div id="stat-total-verifs" class="stat-number">0</div>
+          </div>
+          <div class="stat-icon purple">
+            <i class="fa-solid fa-fingerprint"></i>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-info">
+            <h3>Codes Reconnus</h3>
+            <div id="stat-recognized-codes" class="stat-number" style="color: #059669;">0</div>
+          </div>
+          <div class="stat-icon green">
+            <i class="fa-solid fa-circle-check"></i>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-info">
+            <h3>Codes Inconnus</h3>
+            <div id="stat-unknown-codes" class="stat-number" style="color: #dc2626;">0</div>
+          </div>
+          <div class="stat-icon red">
+            <i class="fa-solid fa-circle-xmark"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Aperçu croisé : Derniers tickets créés & Dernières vérifications -->
+      <div class="dashboard-split-layout">
+        <!-- Derniers tickets ajoutés -->
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.75rem;">
+            <h3 style="font-size: 1rem; font-weight: 700; color: #0f172a;">
+              <i class="fa-solid fa-ticket-simple" style="color: #2563eb; margin-right: 0.5rem;"></i> Derniers tickets ajoutés
+            </h3>
+            <button class="btn btn-secondary btn-sm" onclick="switchTab('tickets')">Gérer les tickets</button>
+          </div>
+          <div id="dashboard-recent-tickets">
+            <!-- Rempli par app.js -->
+          </div>
+        </div>
+
+        <!-- Historique récent des contrôles -->
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.75rem;">
+            <h3 style="font-size: 1rem; font-weight: 700; color: #0f172a;">
+              <i class="fa-solid fa-clock-rotate-left" style="color: #059669; margin-right: 0.5rem;"></i> Historique récent des contrôles
+            </h3>
+            <button class="btn btn-secondary btn-sm" onclick="switchTab('history')">Voir tout</button>
+          </div>
+          <div id="dashboard-recent-verifs">
+            <!-- Rempli par app.js -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------------
+         SECTION 3 : GESTION DES TICKETS (Ajouter, Modifier, Supprimer, Recherche)
+         --------------------------------------------------------------------- -->
+    <section id="section-tickets" class="view-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title"><i class="fa-solid fa-list-check" style="color: #2563eb;"></i> Gestion des tickets</h2>
+          <p class="section-desc">Consultez, ajoutez, modifiez ou supprimez les tickets enregistrés dans la base de données.</p>
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <a href="/api/stats/export/tickets" class="btn btn-secondary btn-sm" title="Exporter au format CSV">
+            <i class="fa-solid fa-file-csv"></i> Exporter CSV
+          </a>
+          <button id="btn-new-ticket" class="btn btn-primary" style="font-weight: 700; padding: 0.55rem 1.125rem;">
+            <i class="fa-solid fa-circle-plus"></i> + Ajouter un ticket
+          </button>
+        </div>
+      </div>
+
+      <!-- Barre d'outils (Recherche + Filtres) -->
+      <div class="table-toolbar">
+        <div class="search-box-wrapper">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input
+            type="text"
+            id="ticket-search-input"
+            class="search-input"
+            placeholder="Rechercher par code, nom ou description..."
+          >
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <label for="ticket-status-filter" style="font-size: 0.8125rem; font-weight: 600; color: #475569;">Statut :</label>
+          <select id="ticket-status-filter" class="filter-select">
+            <option value="Tous">Tous les statuts</option>
+            <option value="Actif">Actif</option>
+            <option value="Utilisé">Utilisé</option>
+            <option value="Expiré">Expiré</option>
+            <option value="Annulé">Annulé</option>
+          </select>
+        </div>
+
+        <div id="tickets-count-label" style="font-size: 0.8125rem; font-weight: 600; color: #64748b;">
+          0 ticket(s)
+        </div>
+      </div>
+
+      <!-- Tableau des tickets -->
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Code Unique</th>
+              <th>Nom / Type</th>
+              <th>Description</th>
+              <th>Statut</th>
+              <th>Créé le</th>
+              <th>Contrôles</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tickets-table-body">
+            <!-- Rempli par app.js -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------------
+         SECTION 4 : HISTORIQUE COMPLET DES VÉRIFICATIONS
+         --------------------------------------------------------------------- -->
+    <section id="section-history" class="view-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title"><i class="fa-solid fa-clock-rotate-left" style="color: #2563eb;"></i> Journal des vérifications</h2>
+          <p class="section-desc">Historique exhaustif et horodaté de chaque tentative de vérification de ticket.</p>
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <a href="/api/stats/export/history" class="btn btn-secondary btn-sm" title="Télécharger l'historique en CSV">
+            <i class="fa-solid fa-download"></i> Exporter CSV
+          </a>
+          <button id="btn-clear-history" class="btn btn-danger btn-sm" title="Vider l'historique">
+            <i class="fa-solid fa-trash-can"></i> Vider l'historique
+          </button>
+        </div>
+      </div>
+
+      <!-- Barre d'outils et filtres d'historique -->
+      <div class="table-toolbar">
+        <div class="search-box-wrapper">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input
+            type="text"
+            id="history-search-input"
+            class="search-input"
+            placeholder="Filtrer l'historique par code ou nom..."
+          >
+        </div>
+
+        <div style="display: flex; gap: 0.375rem;">
+          <button class="btn btn-secondary btn-sm btn-history-filter active" data-filter="all">Tous</button>
+          <button class="btn btn-secondary btn-sm btn-history-filter" data-filter="authentic">
+            <i class="fa-solid fa-check" style="color: #059669;"></i> Reconnus
+          </button>
+          <button class="btn btn-secondary btn-sm btn-history-filter" data-filter="rejected">
+            <i class="fa-solid fa-xmark" style="color: #dc2626;"></i> Inconnus
+          </button>
+        </div>
+
+        <div id="history-count-label" style="font-size: 0.8125rem; font-weight: 600; color: #64748b;">
+          0 contrôle(s)
+        </div>
+      </div>
+
+      <!-- Tableau d'historique -->
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Date & Heure</th>
+              <th>Code Recherché</th>
+              <th>Résultat du Contrôle</th>
+              <th>Nom du Ticket</th>
+              <th>Statut Lors du Scan</th>
+              <th>Source IP</th>
+            </tr>
+          </thead>
+          <tbody id="history-table-body">
+            <!-- Rempli par app.js -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------------
+         SECTION 5 : PARAMÈTRES ET CONFIGURATION
+         --------------------------------------------------------------------- -->
+    <section id="section-settings" class="view-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title"><i class="fa-solid fa-gear" style="color: #2563eb;"></i> Paramètres & Sécurité</h2>
+          <p class="section-desc">Configuration du système, sécurité administrateur et diagnostic de la base de données.</p>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+        <!-- Carte Sécurité / Mot de passe Admin -->
+        <div class="card" id="settings-admin-card" style="display: none;">
+          <h3 style="font-size: 1.0625rem; font-weight: 700; margin-bottom: 0.5rem; color: #0f172a;">
+            <i class="fa-solid fa-shield-halved" style="color: #2563eb; margin-right: 0.5rem;"></i> Sécurité Administrateur
+          </h3>
+          <p style="font-size: 0.8125rem; color: #64748b; margin-bottom: 1.25rem;">
+            Modifiez le mot de passe de votre compte administrateur.
+          </p>
+
+          <div id="pwd-alert" class="toast error" style="display: none; margin-bottom: 1rem;"></div>
+
+          <form id="change-password-form">
+            <div class="form-group">
+              <label for="pwd-current" class="form-label">Mot de passe actuel</label>
+              <input type="password" id="pwd-current" class="form-input" required>
+            </div>
+            <div class="form-group">
+              <label for="pwd-new" class="form-label">Nouveau mot de passe (min. 6 caractères)</label>
+              <input type="password" id="pwd-new" class="form-input" required minlength="6">
+            </div>
+            <div class="form-group">
+              <label for="pwd-confirm" class="form-label">Confirmer le nouveau mot de passe</label>
+              <input type="password" id="pwd-confirm" class="form-input" required minlength="6">
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">
+              <i class="fa-solid fa-key"></i> Mettre à jour le mot de passe
+            </button>
+          </form>
+        </div>
+
+        <!-- Carte Diagnostic Base de données SQLite -->
+        <div class="card">
+          <h3 style="font-size: 1.0625rem; font-weight: 700; margin-bottom: 0.5rem; color: #0f172a;">
+            <i class="fa-solid fa-database" style="color: #059669; margin-right: 0.5rem;"></i> Persistance & Base de données
+          </h3>
+          <p style="font-size: 0.8125rem; color: #64748b; margin-bottom: 1.25rem;">
+            État du stockage et vérification de la persistance des données.
+          </p>
+
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-lg); padding: 1rem; font-size: 0.8125rem; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="color: #64748b;">Moteur :</span>
+              <strong>SQLite (Intégré Node.js v24)</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="color: #64748b;">Emplacement :</span>
+              <strong style="font-family: monospace;">data/authentique.db</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="color: #64748b;">Mode Journal :</span>
+              <span class="badge badge-actif">WAL (Haute performance)</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #64748b;">Statut :</span>
+              <span style="color: #059669; font-weight: 700;"><i class="fa-solid fa-circle-check"></i> Opérationnel & Persistant</span>
+            </div>
+          </div>
+
+          <div style="font-size: 0.8125rem; color: #475569; line-height: 1.4;">
+            <i class="fa-solid fa-circle-info" style="color: #3b82f6;"></i> Les données sont enregistrées en temps réel sur disque. Même après un redémarrage du serveur, vos tickets et historiques restent intacts.
+          </div>
+        </div>
+
+        <!-- Carte Principes & Informations -->
+        <div class="card">
+          <h3 style="font-size: 1.0625rem; font-weight: 700; margin-bottom: 0.5rem; color: #0f172a;">
+            <i class="fa-solid fa-circle-question" style="color: #f59e0b; margin-right: 0.5rem;"></i> Guide d'Utilisation
+          </h3>
+          <ul style="font-size: 0.8125rem; color: #475569; padding-left: 1.25rem; line-height: 1.6;">
+            <li><strong>Vérification :</strong> Entrez le code du ticket pour savoir en temps réel s'il est authentique ou non.</li>
+            <li><strong>Sécurité des codes :</strong> Chaque code est unique dans la base de données.</li>
+            <li><strong>Protection Admin :</strong> La création, modification et suppression nécessitent une session administrateur active.</li>
+            <li><strong>Identifiants initiaux :</strong> Utilisateur <code>admin</code> / Mot de passe <code>admin1234</code>.</li>
+          </ul>
+        </div>
+
+        <!-- Carte Hébergement Local & Accès Téléphone / Tablettes -->
+        <div class="card" style="border: 2px solid #3b82f6; box-shadow: 0 10px 25px -5px rgba(37,99,235,0.15); grid-column: 1 / -1;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">
+              <i class="fa-solid fa-mobile-screen-button" style="color: #2563eb; margin-right: 0.5rem;"></i> Accès Téléphone & Réseau Local (Sans Play Store ni App Store)
+            </h3>
+            <span class="badge badge-actif"><i class="fa-solid fa-wifi"></i> Même Wi-Fi</span>
+          </div>
+          <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 1.25rem;">
+            Vous pouvez ouvrir, utiliser et installer l'application comme une vraie application mobile sur n'importe quel smartphone, tablette ou autre ordinateur connecté à votre réseau Wi-Fi.
+          </p>
+
+          <div style="display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap; background: #f8fafc; padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid #e2e8f0;">
+            <div style="background: #ffffff; padding: 0.625rem; border-radius: 12px; border: 1px solid #cbd5e1; text-align: center; box-shadow: var(--shadow-sm);">
+              <img id="network-qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://adventures-dans-females-decor.trycloudflare.com" alt="QR Code Téléphone" style="width: 150px; height: 150px; display: block; border-radius: 6px;">
+              <div style="font-size: 0.6875rem; color: #2563eb; margin-top: 6px; font-weight: 700;">
+                <i class="fa-solid fa-camera"></i> Flasher avec l'appareil photo
+              </div>
+            </div>
+
+            <div style="flex: 1; min-width: 260px;">
+              <div style="font-size: 0.8125rem; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 0.35rem;">
+                Lien direct Smartphone (Wi-Fi ou 4G/5G) :
+              </div>
+              <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem;">
+                <input type="text" id="network-url-input" class="form-input" value="https://adventures-dans-females-decor.trycloudflare.com" readonly style="font-size: 0.875rem; font-family: monospace; font-weight: 700; color: #1e3a8a; background: #ffffff;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="copyNetworkUrl()" title="Copier le lien" style="white-space: nowrap;">
+                  <i class="fa-solid fa-copy"></i> Copier
+                </button>
+              </div>
+              <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 0.75rem;">
+                <span class="badge badge-actif"><i class="fa-solid fa-shield-halved"></i> HTTPS Sécurisé</span>
+                <span style="margin-left: 0.5rem;">Fonctionne sur n'importe quel téléphone sans blocage de pare-feu.</span>
+              </div>
+
+              <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.875rem 1rem;">
+                <div style="font-weight: 700; font-size: 0.875rem; color: #0f172a; margin-bottom: 0.35rem;">
+                  <i class="fa-brands fa-android" style="color: #10b981; margin-right: 0.25rem;"></i> Android & <i class="fa-brands fa-apple" style="color: #0f172a; margin-right: 0.25rem;"></i> iPhone (Installation en 1 clic) :
+                </div>
+                <ul style="margin: 0; padding-left: 1.25rem; font-size: 0.8125rem; color: #475569; line-height: 1.5;">
+                  <li>Sur <strong>Android (Chrome)</strong> : appuyez sur le menu (les 3 points) puis <strong>« Installer l'application »</strong> ou <strong>« Ajouter à l'écran d'accueil »</strong>.</li>
+                  <li>Sur <strong>iPhone (Safari)</strong> : appuyez sur le bouton de partage <i class="fa-solid fa-arrow-up-from-bracket"></i> puis choisissez <strong>« Sur l'écran d'accueil »</strong>.</li>
+                  <li>L'icône de l'application s'ajoute sur votre écran comme une application native sans passer par aucun store !</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- =========================================================================
+       PIED DE PAGE (FOOTER)
+       ========================================================================= -->
+  <footer class="app-footer">
+    <div style="max-width: 1300px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+      <div>
+        <strong>Authentique Contrôle</strong> &copy; 2026 &mdash; Plateforme sécurisée de certification et de contrôle de tickets.
+      </div>
+      <div>
+        <span style="font-size: 0.75rem; color: #94a3b8;">Protection intégrité des données active</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- =========================================================================
+       MODALE : AJOUTER / MODIFIER UN TICKET
+       ========================================================================= -->
+  <div id="modal-ticket" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-ticket-title">Ajouter un nouveau ticket</h3>
+        <button type="button" class="btn-close-modal" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="ticket-form">
+        <div class="modal-body">
+          <input type="hidden" id="ticket-id">
+
+          <!-- Alert box inside modal for error messages like "Ce ticket existe déjà." -->
+          <div id="ticket-modal-alert" class="toast error" style="display: none; margin-bottom: 1rem; width: 100%;"></div>
+
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.375rem;">
+              <label for="ticket-code" class="form-label" style="margin-bottom: 0;">Code unique du ticket *</label>
+              <button type="button" id="btn-generate-code" class="btn btn-secondary btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Générer un code
+              </button>
+            </div>
+            <input type="text" id="ticket-code" class="form-input uppercase" placeholder="Ex : AUTH-XXXX-YYYY" required>
+            <div class="form-hint">Le code doit être strictement unique dans la base de données.</div>
+          </div>
+
+          <div class="form-group">
+            <label for="ticket-name" class="form-label">Nom ou type du ticket *</label>
+            <input type="text" id="ticket-name" class="form-input" placeholder="Ex : Pass VIP Platine, Billet Standard..." required>
+          </div>
+
+          <div class="form-group">
+            <label for="ticket-desc" class="form-label">Description ou détails complémentaires</label>
+            <textarea id="ticket-desc" class="form-textarea" rows="2" placeholder="Accès spécifiques, place réservée, consignes..."></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label for="ticket-status" class="form-label">Statut du ticket</label>
+              <select id="ticket-status" class="form-select">
+                <option value="Actif">Actif</option>
+                <option value="Utilisé">Utilisé</option>
+                <option value="Expiré">Expiré</option>
+                <option value="Annulé">Annulé</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="ticket-valid-until" class="form-label">Date de fin de validité</label>
+              <input type="date" id="ticket-valid-until" class="form-input">
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-modal-cancel">Annuler</button>
+          <button type="submit" id="btn-save-ticket" class="btn btn-primary">
+            <i class="fa-solid fa-check"></i> Enregistrer le ticket
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODALE : CONFIRMATION DE SUPPRESSION DE TICKET
+       ========================================================================= -->
+  <div id="modal-delete-confirm" class="modal-overlay">
+    <div class="modal-content" style="max-width: 440px;">
+      <div class="modal-header" style="background-color: #fef2f2; border-bottom-color: #fee2e2;">
+        <h3 style="color: #991b1b; display: flex; align-items: center; gap: 0.5rem;">
+          <i class="fa-solid fa-triangle-exclamation"></i> Confirmer la suppression
+        </h3>
+        <button type="button" class="btn-close-modal" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p style="color: #334155; font-size: 0.9375rem; margin-bottom: 0.75rem;">
+          Êtes-vous sûr de vouloir supprimer définitivement le ticket ayant le code :
+        </p>
+        <div style="background: #f1f5f9; padding: 0.75rem 1rem; border-radius: var(--radius-md); font-family: monospace; font-size: 1.125rem; font-weight: 700; color: #1e3a8a; text-align: center; border: 1px solid #cbd5e1; margin-bottom: 0.75rem;" id="delete-ticket-code-label">
+          AUTH-XXXX
+        </div>
+        <p style="color: #64748b; font-size: 0.8125rem; margin: 0;">
+          Cette action est irréversible et supprimera également les liaisons de ce ticket dans la base de données.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-modal-cancel">Annuler</button>
+        <button type="button" id="btn-confirm-delete" class="btn btn-danger">
+          <i class="fa-solid fa-trash-can"></i> Supprimer définitivement
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODALE : CONNEXION ADMINISTRATEUR
+       ========================================================================= -->
+  <div id="modal-login" class="modal-overlay">
+    <div class="modal-content" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3 style="display: flex; align-items: center; gap: 0.5rem;">
+          <i class="fa-solid fa-lock" style="color: #2563eb;"></i> Espace Administrateur
+        </h3>
+        <button type="button" class="btn-close-modal" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="login-form">
+        <div class="modal-body">
+          <div id="login-modal-alert" class="toast error" style="display: none; margin-bottom: 1rem; width: 100%;"></div>
+
+          <div class="form-group">
+            <label for="login-username" class="form-label">Identifiant Administrateur</label>
+            <input type="text" id="login-username" class="form-input" value="admin" required>
+          </div>
+
+          <div class="form-group">
+            <label for="login-password" class="form-label">Mot de passe</label>
+            <input type="password" id="login-password" class="form-input" placeholder="Mot de passe" required>
+            <div class="form-hint" style="color: #2563eb;">Identifiants par défaut : <strong>admin</strong> / <strong>admin1234</strong></div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-modal-cancel">Fermer</button>
+          <button type="submit" id="btn-submit-login" class="btn btn-primary">
+            <i class="fa-solid fa-lock-open"></i> Se connecter
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Conteneur des notifications toasts -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Script principal -->
+  <script src="/js/app.js"></script>
+</body>
+</html>

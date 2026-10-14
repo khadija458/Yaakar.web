@@ -1,0 +1,26 @@
+{
+  "name": "authentique-controle",
+  "version": "1.0.0",
+  "description": "Application web de vérification d'authenticité et de gestion de tickets",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "ticket",
+    "verification",
+    "authenticite",
+    "controle",
+    "sqlite",
+    "express"
+  ],
+  "author": "Authentique Contrôle Team",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "express": "^4.21.2",
+    "multicast-dns": "^7.2.5"
+  }
+}
