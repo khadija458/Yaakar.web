@@ -135,6 +135,9 @@
             </div>
 
             <div class="verify-btn-row">
+              <button type="button" id="btn-open-scanner" class="btn-scan-camera" title="Scanner un code avec la caméra du smartphone">
+                <i class="fa-solid fa-camera"></i> Scanner avec la caméra
+              </button>
               <button type="submit" id="btn-verify-action" class="btn-verify-primary">
                 <i class="fa-solid fa-magnifying-glass-check"></i> Vérifier le ticket
               </button>
@@ -693,10 +696,98 @@
     </div>
   </div>
 
+  <!-- =========================================================================
+       MODALE : SCANNER UN BILLET AVEC LA CAMÉRA DU SMARTPHONE / PC
+       ========================================================================= -->
+  <div id="modal-camera-scanner" class="modal-overlay">
+    <div class="modal-content scanner-modal-content">
+      <div class="modal-header">
+        <h3 style="display: flex; align-items: center; gap: 0.5rem;">
+          <i class="fa-solid fa-camera" style="color: #2563eb;"></i> Scanner un Billet
+        </h3>
+        <button type="button" class="btn-close-modal" id="btn-close-scanner" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" style="padding: 1.25rem; text-align: center;">
+        <div id="scanner-instruction" style="font-size: 0.875rem; color: #475569; margin-bottom: 0.75rem;">
+          Pointez votre caméra vers le <strong>QR Code</strong> ou le <strong>Code-barres</strong> du billet.
+        </div>
+
+        <!-- Scanner Error Box -->
+        <div id="scanner-error-message" class="toast error" style="display: none; margin-bottom: 1rem; width: 100%; text-align: left;"></div>
+
+        <!-- Scanner Viewport Container -->
+        <div class="scanner-viewport-wrapper">
+          <div id="qr-reader" style="width: 100%;"></div>
+          <div class="scanner-laser-line"></div>
+        </div>
+
+        <!-- Camera Toolbar -->
+        <div class="scanner-controls-toolbar">
+          <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; margin-top: 1rem;">
+            <label class="btn btn-secondary btn-sm" for="qr-file-input" style="cursor: pointer;">
+              <i class="fa-solid fa-image"></i> Scanner depuis une photo
+            </label>
+            <input type="file" id="qr-file-input" accept="image/*" style="display: none;">
+            
+            <button type="button" id="btn-toggle-camera" class="btn btn-secondary btn-sm" style="display: none;">
+              <i class="fa-solid fa-camera-rotate"></i> Changer de caméra
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between; align-items: center;">
+        <span style="font-size: 0.75rem; color: #64748b;">
+          <i class="fa-solid fa-shield-halved" style="color: #10b981;"></i> Détection instantanée
+        </span>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-scanner">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODALE : AFFICHER & IMPRIMER LE QR CODE D'UN TICKET
+       ========================================================================= -->
+  <div id="modal-ticket-qr" class="modal-overlay">
+    <div class="modal-content" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 id="modal-ticket-qr-title" style="display: flex; align-items: center; gap: 0.5rem;">
+          <i class="fa-solid fa-qrcode" style="color: #2563eb;"></i> QR Code du Billet
+        </h3>
+        <button type="button" class="btn-close-modal" id="btn-close-ticket-qr" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" style="text-align: center; padding: 1.5rem;">
+        <div id="ticket-qr-badge-container" style="margin-bottom: 0.75rem;">
+          <span id="ticket-qr-status" class="badge badge-actif">Actif</span>
+        </div>
+        <h4 id="ticket-qr-name" style="font-size: 1.125rem; font-weight: 800; color: #0f172a; margin-bottom: 0.25rem;">Pass VIP Platine</h4>
+        <div id="ticket-qr-code-text" style="font-family: monospace; font-size: 1.25rem; font-weight: 800; color: #1e3a8a; letter-spacing: 0.05em; margin-bottom: 1.25rem; background: #eff6ff; padding: 0.5rem 1rem; border-radius: 8px; display: inline-block;">
+          AUTH-2026-VIP
+        </div>
+        
+        <div style="background: #ffffff; padding: 1rem; border-radius: 12px; border: 2px dashed #cbd5e1; display: inline-block; margin-bottom: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+          <img id="ticket-qr-image" src="" alt="Ticket QR Code" style="width: 220px; height: 220px; display: block; border-radius: 4px;">
+        </div>
+
+        <p style="font-size: 0.8125rem; color: #64748b; margin: 0;">
+          Vous pouvez scanner ce QR code directement avec l'appareil photo d'un smartphone pour vérifier le ticket.
+        </p>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-print-qr">
+          <i class="fa-solid fa-print"></i> Imprimer
+        </button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-download-qr">
+          <i class="fa-solid fa-download"></i> Télécharger l'image
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Conteneur des notifications toasts -->
   <div id="toast-container" class="toast-container"></div>
 
-  <!-- Script principal -->
+  <!-- Bibliothèques de scan et d'application -->
+  <script src="/js/html5-qrcode.min.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>

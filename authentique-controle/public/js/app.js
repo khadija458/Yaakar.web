@@ -23,6 +23,8 @@ const state = {
 document.addEventListener('DOMContentLoaded', () => {
   initNavigation();
   initVerification();
+  initCameraScanner();
+  initTicketQrModal();
   initTicketManagement();
   initHistory();
   initAuth();
@@ -132,6 +134,14 @@ function initVerification() {
       performVerification();
     });
   });
+
+  // Camera scanner trigger
+  const btnScan = document.getElementById('btn-open-scanner');
+  if (btnScan) {
+    btnScan.addEventListener('click', () => {
+      openCameraScanner();
+    });
+  }
 }
 
 async function performVerification() {
@@ -509,6 +519,9 @@ function renderTicketsTable(tickets) {
         </td>
         <td>
           <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <button class="btn-table-action btn-table-qr" title="Afficher et imprimer le QR Code" onclick="showTicketQrModal(${ticket.id})">
+              <i class="fa-solid fa-qrcode"></i> QR Code
+            </button>
             <button class="btn-table-action btn-table-edit" title="Modifier les informations de ce ticket" onclick="openEditTicketModal(${ticket.id})">
               <i class="fa-solid fa-pen-to-square"></i> Modifier
             </button>
@@ -1263,3 +1276,259 @@ window.openCreateTicketModal = openCreateTicketModal;
 window.openLoginModal = openLoginModal;
 window.closeModal = closeModal;
 window.copyNetworkUrl = copyNetworkUrl;
+window.openCameraScanner = openCameraScanner;
+window.closeCameraScanner = closeCameraScanner;
+window.showTicketQrModal = showTicketQrModal;
+
+/* ==========================================================================
+   MODULE SCANNER CAMÉRA EN DIRECT (QR CODE & CODE-BARRES)
+   ========================================================================== */
+let html5QrCode = null;
+let isScannerRunning = false;
+let currentFacingMode = "environment"; // default to smartphone back camera
+
+function playScanBeep(isSuccess = true) {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (isSuccess) {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1320, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.22);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.22);
+    } else {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(300, ctx.currentTime);
+      osc.frequency.setValueAtTime(200, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.25);
+    }
+  } catch (e) {}
+}
+
+function initCameraScanner() {
+  const closeBtn = document.getElementById('btn-close-scanner');
+  if (closeBtn) closeBtn.addEventListener('click', closeCameraScanner);
+
+  const cancelBtn = document.getElementById('btn-cancel-scanner');
+  if (cancelBtn) cancelBtn.addEventListener('click', closeCameraScanner);
+
+  const toggleCamBtn = document.getElementById('btn-toggle-camera');
+  if (toggleCamBtn) {
+    toggleCamBtn.addEventListener('click', async () => {
+      currentFacingMode = (currentFacingMode === "environment") ? "user" : "environment";
+      await restartCameraScanner();
+    });
+  }
+
+  // File scan input
+  const fileInput = document.getElementById('qr-file-input');
+  if (fileInput) {
+    fileInput.addEventListener('change', async (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        const file = e.target.files[0];
+        try {
+          if (!html5QrCode) {
+            html5QrCode = new Html5Qrcode("qr-reader");
+          }
+          const decodedText = await html5QrCode.scanFile(file, true);
+          handleScanSuccess(decodedText);
+        } catch (err) {
+          console.error('Erreur lecture image QR:', err);
+          showToast("Aucun code détecté dans l'image sélectionnée.", "error");
+        }
+      }
+    });
+  }
+}
+
+async function openCameraScanner() {
+  const modal = document.getElementById('modal-camera-scanner');
+  if (modal) modal.classList.add('open');
+  const errBox = document.getElementById('scanner-error-message');
+  if (errBox) errBox.style.display = 'none';
+
+  if (typeof Html5Qrcode === 'undefined') {
+    showToast("Le module scanner se prépare...", "warning");
+    return;
+  }
+
+  try {
+    if (!html5QrCode) {
+      html5QrCode = new Html5Qrcode("qr-reader");
+    }
+
+    try {
+      const cameras = await Html5Qrcode.getCameras();
+      if (cameras && cameras.length > 1) {
+        const toggleCamBtn = document.getElementById('btn-toggle-camera');
+        if (toggleCamBtn) toggleCamBtn.style.display = 'inline-flex';
+      }
+    } catch (e) {}
+
+    await startScannerStream();
+  } catch (err) {
+    console.error('Erreur démarrage scanner:', err);
+    showCameraError("Veuillez autoriser l'accès à la caméra de votre smartphone dans votre navigateur.");
+  }
+}
+
+async function startScannerStream() {
+  if (isScannerRunning) return;
+
+  const config = {
+    fps: 15,
+    qrbox: (viewfinderWidth, viewfinderHeight) => {
+      const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+      const edge = Math.floor(minEdge * 0.75);
+      return { width: edge, height: edge };
+    },
+    aspectRatio: 1.0,
+    experimentalFeatures: {
+      useBarCodeDetectorIfSupported: true
+    }
+  };
+
+  try {
+    await html5QrCode.start(
+      { facingMode: currentFacingMode },
+      config,
+      (decodedText) => {
+        handleScanSuccess(decodedText);
+      },
+      (errorMessage) => {
+        // Continuous search
+      }
+    );
+    isScannerRunning = true;
+  } catch (startErr) {
+    console.warn("Échec caméra facingMode, tentative par défaut :", startErr);
+    // Fallback: start with default camera
+    const cameras = await Html5Qrcode.getCameras();
+    if (cameras && cameras.length > 0) {
+      const cameraId = cameras[cameras.length - 1].id;
+      await html5QrCode.start(
+        cameraId,
+        config,
+        (decodedText) => {
+          handleScanSuccess(decodedText);
+        },
+        () => {}
+      );
+      isScannerRunning = true;
+    } else {
+      throw startErr;
+    }
+  }
+}
+
+async function restartCameraScanner() {
+  if (html5QrCode && isScannerRunning) {
+    try {
+      await html5QrCode.stop();
+    } catch (e) {}
+    isScannerRunning = false;
+  }
+  await startScannerStream();
+}
+
+async function closeCameraScanner() {
+  if (html5QrCode && isScannerRunning) {
+    try {
+      await html5QrCode.stop();
+    } catch (e) {
+      console.error('Erreur arrêt scanner:', e);
+    }
+    isScannerRunning = false;
+  }
+
+  const modal = document.getElementById('modal-camera-scanner');
+  if (modal) modal.classList.remove('open');
+  const errBox = document.getElementById('scanner-error-message');
+  if (errBox) errBox.style.display = 'none';
+}
+
+function handleScanSuccess(scannedCode) {
+  playScanBeep(true);
+  closeCameraScanner();
+
+  const input = document.getElementById('verify-code-input');
+  const clearBtn = document.getElementById('btn-clear-code');
+  if (input) {
+    input.value = scannedCode.trim();
+    if (clearBtn) clearBtn.style.display = 'block';
+  }
+
+  showToast(`Code scanné avec succès : ${scannedCode.trim()}`, "success");
+  performVerification();
+}
+
+function showCameraError(msg) {
+  const errBox = document.getElementById('scanner-error-message');
+  if (errBox) {
+    errBox.textContent = msg;
+    errBox.style.display = 'block';
+  }
+  showToast(msg, "error");
+}
+
+/* ==========================================================================
+   MODULE MODALE QR CODE DE BILLET (AFFICHAGE & IMPRESSION)
+   ========================================================================== */
+function initTicketQrModal() {
+  const closeBtn = document.getElementById('btn-close-ticket-qr');
+  if (closeBtn) closeBtn.addEventListener('click', () => closeModal('modal-ticket-qr'));
+
+  const printBtn = document.getElementById('btn-print-qr');
+  if (printBtn) {
+    printBtn.addEventListener('click', () => {
+      window.print();
+    });
+  }
+
+  const downloadBtn = document.getElementById('btn-download-qr');
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', () => {
+      const img = document.getElementById('ticket-qr-image');
+      if (img && img.src) {
+        const a = document.createElement('a');
+        a.href = img.src;
+        a.download = `ticket-qr-${document.getElementById('ticket-qr-code-text').textContent.trim()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        showToast("Téléchargement du QR Code lancé", "success");
+      }
+    });
+  }
+}
+
+function showTicketQrModal(ticketId) {
+  const ticket = state.tickets.find(t => t.id === ticketId);
+  if (!ticket) return;
+
+  document.getElementById('ticket-qr-name').textContent = ticket.name;
+  document.getElementById('ticket-qr-code-text').textContent = ticket.code;
+
+  const statusBadge = document.getElementById('ticket-qr-status');
+  statusBadge.textContent = ticket.status;
+  statusBadge.className = `badge badge-${ticket.status.toLowerCase()}`;
+
+  // High-res QR code
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(ticket.code)}`;
+  const qrImg = document.getElementById('ticket-qr-image');
+  qrImg.src = qrUrl;
+
+  openModal('modal-ticket-qr');
+}
