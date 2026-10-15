@@ -42,6 +42,25 @@ app.get('/api/system-status', (req, res) => {
 
 // Network info endpoint for phone / local device access
 app.get('/api/network-info', (req, res) => {
+  const host = req.get('host') || 'authentique-controle.onrender.com';
+  const proto = req.headers['x-forwarded-proto'] || 'https';
+  const cloudUrl = `${proto}://${host}`;
+
+  // If running on Render cloud
+  if (process.env.RENDER || host.includes('onrender.com')) {
+    return res.json({
+      port: PORT,
+      hostname: host,
+      friendlyUrl: cloudUrl,
+      friendlyUrlWithPort: cloudUrl,
+      customDomainUrl: cloudUrl,
+      localUrl: cloudUrl,
+      primaryNetworkUrl: cloudUrl,
+      primaryIp: host,
+      allNetworkUrls: [{ interface: 'cloud-render', ip: host, url: cloudUrl }]
+    });
+  }
+
   const os = require('node:os');
   const interfaces = os.networkInterfaces();
   const networkIps = [];

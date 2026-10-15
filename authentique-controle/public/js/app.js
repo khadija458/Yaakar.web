@@ -1230,9 +1230,21 @@ window.addEventListener('beforeinstallprompt', (e) => {
   }
 });
 
-// Load Network Information from Server (Local Wi-Fi IP)
+// Load Network Information from Server (Local Wi-Fi IP or Public Cloud URL)
 async function loadNetworkInfo() {
   try {
+    const origin = window.location.origin;
+    // If running online (e.g. on Render)
+    if (origin && !origin.includes('localhost') && !origin.includes('127.0.0.1') && !origin.endsWith('.local')) {
+      const input = document.getElementById('network-url-input');
+      const qrImg = document.getElementById('network-qr-code');
+      if (input) input.value = origin;
+      if (qrImg) {
+        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(origin)}`;
+      }
+      return;
+    }
+
     const res = await fetch('/api/network-info');
     const data = await res.json();
     if (data && data.primaryNetworkUrl) {
@@ -1240,11 +1252,11 @@ async function loadNetworkInfo() {
       const qrImg = document.getElementById('network-qr-code');
       if (input) input.value = data.primaryNetworkUrl;
       if (qrImg) {
-        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(data.primaryNetworkUrl)}`;
+        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(data.primaryNetworkUrl)}`;
       }
     }
   } catch (e) {
-    // Keep fallback 192.168.1.191:3000
+    // Keep fallback
   }
 }
 
