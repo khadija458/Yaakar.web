@@ -21,6 +21,16 @@ app.use(cookieParser());
 // Disable x-powered-by header
 app.disable('x-powered-by');
 
+// Prevent caching for HTML and Service Worker so updates are instant
+app.use((req, res, next) => {
+  if (req.path === '/' || req.path === '/index.html' || req.path === '/sw.js') {
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+  }
+  next();
+});
+
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -95,8 +105,9 @@ app.get('/api/network-info', (req, res) => {
   });
 });
 
-// Single Page fallback
+// Single Page fallback (no cache)
 app.get('*', (req, res) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
