@@ -1861,6 +1861,29 @@ async function handleGeneratorSubmit(e) {
     document.getElementById('preview-barcode-text').textContent = `*${officialCode}*`;
     document.getElementById('preview-qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(officialCode)}`;
 
+    // Générer et afficher l'image officielle en format PNG (HD)
+    try {
+      const pngDataUrl = await renderTicketToPng({
+        name,
+        code: officialCode,
+        category,
+        theme,
+        holderName: holder_name,
+        seat,
+        price
+      });
+
+      const pngImg = document.getElementById('generated-ticket-png-img');
+      const dlBtn = document.getElementById('btn-direct-download-png');
+      if (pngImg) pngImg.src = pngDataUrl;
+      if (dlBtn) {
+        dlBtn.href = pngDataUrl;
+        dlBtn.download = `billet-${officialCode}.png`;
+      }
+    } catch (pngErr) {
+      console.warn("Rendu PNG en cours...", pngErr);
+    }
+
     // Afficher le deck de résultat
     const resultDeck = document.getElementById('generator-result-deck');
     resultDeck.style.display = 'block';
@@ -2014,6 +2037,232 @@ function exportGeneratedBatchCsv() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
   showToast("Fichier CSV téléchargé avec succès !", "success");
+}
+
+// ==========================================================================
+// MOTEUR DE GÉNÉRATION D'IMAGE PNG HAUTE DÉFINITION (Canvas 2D HD)
+// ==========================================================================
+async function renderTicketToPng(ticket) {
+  const canvas = document.createElement('canvas');
+  const dpr = 2; // Retina 2x pour une netteté cristalline
+  const width = 660;
+  const height = 300;
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const theme = ticket.theme || 'gold';
+  let grad = ctx.createLinearGradient(0, 0, width, height);
+  let headerGrad = ctx.createLinearGradient(0, 0, width, 0);
+  let accentColor = '#f59e0b';
+
+  if (theme === 'gold') {
+    grad.addColorStop(0, '#0f172a');
+    grad.addColorStop(1, '#1e1b4b');
+    headerGrad.addColorStop(0, '#78350f');
+    headerGrad.addColorStop(0.5, '#b45309');
+    headerGrad.addColorStop(1, '#f59e0b');
+    accentColor = '#f59e0b';
+  } else if (theme === 'cyber') {
+    grad.addColorStop(0, '#090d16');
+    grad.addColorStop(1, '#0f172a');
+    headerGrad.addColorStop(0, '#0e7490');
+    headerGrad.addColorStop(0.5, '#0284c7');
+    headerGrad.addColorStop(1, '#2563eb');
+    accentColor = '#06b6d4';
+  } else if (theme === 'emerald') {
+    grad.addColorStop(0, '#064e3b');
+    grad.addColorStop(1, '#022c22');
+    headerGrad.addColorStop(0, '#064e3b');
+    headerGrad.addColorStop(0.5, '#047857');
+    headerGrad.addColorStop(1, '#10b981');
+    accentColor = '#10b981';
+  } else if (theme === 'purple') {
+    grad.addColorStop(0, '#1e1b4b');
+    grad.addColorStop(1, '#0f172a');
+    headerGrad.addColorStop(0, '#581c87');
+    headerGrad.addColorStop(0.5, '#7c3aed');
+    headerGrad.addColorStop(1, '#a855f7');
+    accentColor = '#a855f7';
+  } else {
+    grad.addColorStop(0, '#1c1917');
+    grad.addColorStop(1, '#0c0a09');
+    headerGrad.addColorStop(0, '#7f1d1d');
+    headerGrad.addColorStop(0.5, '#b91c1c');
+    headerGrad.addColorStop(1, '#ef4444');
+    accentColor = '#ef4444';
+  }
+
+  // Rectangle arrondi pour la silhouette du pass
+  const r = 16;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.lineTo(width - r, 0);
+  ctx.arcTo(width, 0, width, r, r);
+  ctx.lineTo(width, height - r);
+  ctx.arcTo(width, height, width - r, height, r);
+  ctx.lineTo(r, height);
+  ctx.arcTo(0, height, 0, height - r, r);
+  ctx.lineTo(0, r);
+  ctx.arcTo(0, 0, r, 0, r);
+  ctx.closePath();
+  ctx.clip();
+
+  // Fond dégradé luxueux
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, width, height);
+
+  // Bandeau supérieur
+  ctx.fillStyle = headerGrad;
+  ctx.fillRect(0, 0, width, 68);
+
+  // Titre de l'événement
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 18px "Inter", sans-serif';
+  const eventTitle = (ticket.name || 'AUTHENTIQUE CONTRÔLE').slice(0, 32);
+  ctx.fillText(eventTitle, 24, 38);
+
+  // Sous-titre officiel
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+  ctx.font = '600 10px "Inter", sans-serif';
+  ctx.fillText('CERTIFIÉ AUTHENTIQUE • SYSTÈME ANTI-FRAUDE 2026', 24, 54);
+
+  // Badge catégorie à droite
+  const categoryText = (ticket.category || 'PASS VIP OR').toUpperCase();
+  ctx.font = 'bold 11px "Inter", sans-serif';
+  const catWidth = ctx.measureText(categoryText).width + 24;
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+  ctx.beginPath();
+  if (ctx.roundRect) {
+    ctx.roundRect(width - catWidth - 20, 20, catWidth, 28, 14);
+  } else {
+    ctx.rect(width - catWidth - 20, 20, catWidth, 28);
+  }
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(categoryText, width - catWidth - 8, 38);
+
+  // Grille des détails
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '600 10px "Inter", sans-serif';
+  ctx.fillText('BÉNÉFICIAIRE', 24, 100);
+  ctx.fillText('PLACE / ZONE', 190, 100);
+  ctx.fillText('TARIF', 340, 100);
+
+  ctx.fillStyle = '#f8fafc';
+  ctx.font = 'bold 13px "Inter", sans-serif';
+  ctx.fillText(ticket.holderName || 'Titulaire', 24, 122);
+  ctx.fillText(ticket.seat || 'Accès Général', 190, 122);
+  ctx.fillText(ticket.price || 'Gratuit', 340, 122);
+
+  // Boîte du Code Unique
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+  ctx.strokeStyle = accentColor;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  if (ctx.roundRect) {
+    ctx.roundRect(24, 146, 420, 52, 10);
+  } else {
+    ctx.rect(24, 146, 420, 52);
+  }
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '600 9px "Inter", sans-serif';
+  ctx.fillText('CODE UNIQUE DE CONTRÔLE INFALSIFIABLE', 36, 164);
+
+  ctx.fillStyle = accentColor;
+  ctx.font = 'bold 20px monospace';
+  ctx.fillText(ticket.code, 36, 188);
+
+  // Code-barres réaliste
+  const barcodeY = 214;
+  ctx.fillStyle = '#cbd5e1';
+  let bx = 24;
+  const barPattern = [2, 1, 3, 1, 1, 2, 4, 1, 2, 2, 1, 3, 1, 2, 3, 2, 1, 1, 4, 2, 1, 3, 2, 1, 2, 4, 1, 2, 1, 3, 2, 1, 4, 1, 2, 3, 1, 2];
+  for (let b of barPattern) {
+    ctx.fillRect(bx, barcodeY, b, 24);
+    bx += b + 2;
+  }
+  ctx.font = '10px monospace';
+  ctx.fillStyle = '#64748b';
+  ctx.fillText(`*${ticket.code}*`, 24, 254);
+
+  // Ligne de perforation verticale
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 5]);
+  ctx.beginPath();
+  ctx.moveTo(475, 68);
+  ctx.lineTo(475, height);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // QR Code sur le coupon détachable
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=0&data=${encodeURIComponent(ticket.code)}`;
+  const qrImg = new Image();
+  qrImg.crossOrigin = 'anonymous';
+
+  return new Promise((resolve) => {
+    const finalizeCanvas = () => {
+      ctx.restore();
+      // Bordure extérieure chic
+      ctx.strokeStyle = accentColor;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(0, 0, width, height, r);
+      } else {
+        ctx.rect(0, 0, width, height);
+      }
+      ctx.stroke();
+
+      const pngDataUrl = canvas.toDataURL('image/png');
+      resolve(pngDataUrl);
+    };
+
+    qrImg.onload = () => {
+      // Boîte blanche QR code
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(495, 95, 140, 140, 10);
+      } else {
+        ctx.rect(495, 95, 140, 140);
+      }
+      ctx.fill();
+
+      ctx.drawImage(qrImg, 505, 105, 120, 120);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 9px "Inter", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('SCANNER POUR VÉRIFIER', 565, 252);
+      ctx.textAlign = 'left';
+
+      // Sceau filigrane officiel
+      ctx.save();
+      ctx.font = 'bold 9px "Inter", sans-serif';
+      ctx.fillStyle = accentColor;
+      ctx.textAlign = 'center';
+      ctx.fillText('OFFICIEL 2026', 565, 275);
+      ctx.restore();
+
+      finalizeCanvas();
+    };
+
+    qrImg.onerror = () => {
+      finalizeCanvas();
+    };
+
+    qrImg.src = qrUrl;
+  });
 }
 
 // ==========================================================================
