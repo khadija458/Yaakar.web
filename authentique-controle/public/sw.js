@@ -1,10 +1,11 @@
-const CACHE_NAME = 'authentique-controle-v4';
+const CACHE_NAME = 'authentique-controle-v5';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/css/style.css',
   '/js/app.js',
   '/js/html5-qrcode.min.js',
+  '/js/qrious.min.js',
   '/images/shield-badge.jpg',
   '/images/hero-banner.jpg',
   '/images/rejected-badge.jpg',

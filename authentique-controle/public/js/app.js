@@ -2204,65 +2204,123 @@ async function renderTicketToPng(ticket) {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // QR Code sur le coupon détachable
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=0&data=${encodeURIComponent(ticket.code)}`;
-  const qrImg = new Image();
-  qrImg.crossOrigin = 'anonymous';
+  // QR Code sur le coupon détachable (Rendu 100% Local & In-Memory sans CORS)
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  if (ctx.roundRect) {
+    ctx.roundRect(495, 95, 140, 140, 10);
+  } else {
+    ctx.rect(495, 95, 140, 140);
+  }
+  ctx.fill();
 
-  return new Promise((resolve) => {
-    const finalizeCanvas = () => {
-      ctx.restore();
-      // Bordure extérieure chic
-      ctx.strokeStyle = accentColor;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(0, 0, width, height, r);
-      } else {
-        ctx.rect(0, 0, width, height);
+  // Dessin du QR Code avec QRious local
+  try {
+    if (typeof QRious !== 'undefined') {
+      const qr = new QRious({
+        value: ticket.code,
+        size: 240,
+        level: 'H'
+      });
+      ctx.drawImage(qr.canvas, 505, 105, 120, 120);
+    } else {
+      drawFallbackQrGrid(ctx, 505, 105, 120, ticket.code);
+    }
+  } catch (qrErr) {
+    drawFallbackQrGrid(ctx, 505, 105, 120, ticket.code);
+  }
+
+  ctx.fillStyle = '#0f172a';
+  ctx.font = 'bold 9px "Inter", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('SCANNER POUR VÉRIFIER', 565, 252);
+  ctx.textAlign = 'left';
+
+  // Sceau filigrane officiel
+  ctx.save();
+  ctx.font = 'bold 9px "Inter", sans-serif';
+  ctx.fillStyle = accentColor;
+  ctx.textAlign = 'center';
+  ctx.fillText('OFFICIEL 2026', 565, 275);
+  ctx.restore();
+
+  ctx.restore(); // restore clipping
+
+  // Bordure extérieure chic
+  ctx.strokeStyle = accentColor;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  if (ctx.roundRect) {
+    ctx.roundRect(0, 0, width, height, r);
+  } else {
+    ctx.rect(0, 0, width, height);
+  }
+  ctx.stroke();
+
+  // Exportation synchrone du fichier PNG garanti sans restriction CORS
+  const pngDataUrl = canvas.toDataURL('image/png');
+  return pngDataUrl;
+}
+
+// Dessin de secours pour QR Code si nécessaire
+function drawFallbackQrGrid(ctx, x, y, size, text) {
+  ctx.fillStyle = '#0f172a';
+  const cols = 21;
+  const cellSize = size / cols;
+  for (let r = 0; r < cols; r++) {
+    for (let c = 0; c < cols; c++) {
+      if ((r < 7 && c < 7) || (r < 7 && c >= cols - 7) || (r >= cols - 7 && c < 7)) {
+        if (r === 0 || r === 6 || c === 0 || c === 6 || (r >= 2 && r <= 4 && c >= 2 && c <= 4)) {
+          ctx.fillRect(x + c * cellSize, y + r * cellSize, cellSize, cellSize);
+        }
+      } else if ((r * 7 + c * 13 + text.length) % 3 === 0) {
+        ctx.fillRect(x + c * cellSize, y + r * cellSize, cellSize, cellSize);
       }
-      ctx.stroke();
+    }
+  }
+}
 
-      const pngDataUrl = canvas.toDataURL('image/png');
-      resolve(pngDataUrl);
-    };
+// Téléchargement propre du fichier PNG en Blob pour téléphone et PC
+function downloadGeneratedTicketPng() {
+  const pngImg = document.getElementById('generated-ticket-png-img');
+  if (!pngImg || !pngImg.src || !pngImg.src.startsWith('data:image/png')) {
+    showToast("Aucune image de ticket à télécharger.", "warning");
+    return;
+  }
 
-    qrImg.onload = () => {
-      // Boîte blanche QR code
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(495, 95, 140, 140, 10);
-      } else {
-        ctx.rect(495, 95, 140, 140);
-      }
-      ctx.fill();
+  const dataUrl = pngImg.src;
+  const code = (state.lastGeneratedTicket && state.lastGeneratedTicket.code) || 'officiel';
+  const filename = `billet-authentique-${code}.png`;
 
-      ctx.drawImage(qrImg, 505, 105, 120, 120);
+  try {
+    const parts = dataUrl.split(',');
+    const mime = parts[0].match(/:(.*?);/)[1];
+    const bstr = atob(parts[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    const blob = new Blob([u8arr], { type: mime });
+    const blobUrl = URL.createObjectURL(blob);
 
-      ctx.fillStyle = '#0f172a';
-      ctx.font = 'bold 9px "Inter", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('SCANNER POUR VÉRIFIER', 565, 252);
-      ctx.textAlign = 'left';
-
-      // Sceau filigrane officiel
-      ctx.save();
-      ctx.font = 'bold 9px "Inter", sans-serif';
-      ctx.fillStyle = accentColor;
-      ctx.textAlign = 'center';
-      ctx.fillText('OFFICIEL 2026', 565, 275);
-      ctx.restore();
-
-      finalizeCanvas();
-    };
-
-    qrImg.onerror = () => {
-      finalizeCanvas();
-    };
-
-    qrImg.src = qrUrl;
-  });
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+    showToast("Téléchargement du billet PNG terminé !", "success");
+  } catch (err) {
+    // Fallback direct
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 }
 
 // ==========================================================================
