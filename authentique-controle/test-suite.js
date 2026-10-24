@@ -248,6 +248,54 @@ async function runTests() {
       JSON.stringify(statsRes.data.stats)
     );
 
+    // -------------------------------------------------------------------
+    // TEST 8: Générateur intelligent de tickets & vérification immédiate
+    // -------------------------------------------------------------------
+    const genRes = await makeRequest('POST', '/api/tickets/generate', {
+      name: "Festival Yaakar Dakar 2026",
+      category: "Pass VIP Or",
+      theme: "gold",
+      holder_name: "Khadija Diop",
+      seat: "Loge VIP - Table 01",
+      price: "35 000 FCFA",
+      prefix: "VIP",
+      count: 1
+    }, authCookie);
+
+    assert(
+      genRes.statusCode === 201 && genRes.data.success && genRes.data.ticket && genRes.data.ticket.code.startsWith('VIP-'),
+      `8. Studio Générateur : création d'un ticket holographique réussi (${genRes.data?.ticket?.code})`,
+      JSON.stringify(genRes.data)
+    );
+
+    const generatedCode = genRes.data.ticket.code;
+
+    // TEST 8b: Vérification immédiate du ticket généré (demande explicite utilisateur)
+    const verifyGenRes = await makeRequest('POST', '/api/verify', { code: generatedCode });
+    assert(
+      verifyGenRes.statusCode === 200 &&
+      verifyGenRes.data.authentic === true &&
+      verifyGenRes.data.ticket.code === generatedCode,
+      `8b. Vérification immédiate : le ticket généré "${generatedCode}" est certifié authentique à 100%`,
+      JSON.stringify(verifyGenRes.data)
+    );
+
+    // TEST 9: Génération d'un lot multiple de tickets (Batch)
+    const batchRes = await makeRequest('POST', '/api/tickets/generate', {
+      name: "Concert Electro Dakar",
+      category: "Billet Standard",
+      prefix: "FEST",
+      count: 3
+    }, authCookie);
+
+    assert(
+      batchRes.statusCode === 201 &&
+      batchRes.data.tickets.length === 3 &&
+      new Set(batchRes.data.tickets.map(t => t.code)).size === 3,
+      `9. Génération en lot : 3 tickets générés avec codes uniques garantis`,
+      JSON.stringify(batchRes.data.tickets.map(t => t.code))
+    );
+
     console.log('\n======================================================');
     console.log(`RÉSULTAT GLOBAL : ${passed} TESTS RÉUSSIS, ${failed} ÉCHECS`);
     console.log('======================================================\n');

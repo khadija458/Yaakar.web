@@ -69,6 +69,9 @@
       <button class="nav-tab active" data-tab="verify">
         <i class="fa-solid fa-shield-halved"></i> Vérifier un ticket
       </button>
+      <button class="nav-tab" data-tab="generator">
+        <i class="fa-solid fa-wand-magic-sparkles"></i> Générateur de tickets
+      </button>
       <button class="nav-tab" data-tab="dashboard">
         <i class="fa-solid fa-chart-pie"></i> Tableau de bord
       </button>
@@ -183,6 +186,331 @@
           <button type="button" class="btn btn-primary btn-sm" onclick="openCreateTicketModal()" style="font-weight: 600;">
             <i class="fa-solid fa-circle-plus"></i> + Ajouter un ticket
           </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------------
+         SECTION : GÉNÉRATEUR DE TICKETS & PASS HOLOGRAPHIQUES (Cool Studio)
+         --------------------------------------------------------------------- -->
+    <section id="section-generator" class="view-section">
+      <div class="generator-hero-banner">
+        <div class="generator-hero-content">
+          <div class="generator-badge-pill">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Studio de Création & Certification
+          </div>
+          <h2 class="generator-title">Générateur de Tickets & Pass VIP</h2>
+          <p class="generator-desc">
+            Créez des pass et billets holographiques personnalisés avec QR Code unique, puis testez leur vérification instantanément.
+          </p>
+          <div class="generator-presets-bar">
+            <span style="font-weight: 600; font-size: 0.8125rem; color: #94a3b8;">Modèles rapides :</span>
+            <button type="button" class="preset-pill" onclick="applyTicketPreset('concert-vip')">
+              👑 Concert VIP Or
+            </button>
+            <button type="button" class="preset-pill" onclick="applyTicketPreset('festival-pass')">
+              ⚡ Pass Festival Cyber
+            </button>
+            <button type="button" class="preset-pill" onclick="applyTicketPreset('gala-prestige')">
+              💎 Soirée Gala Prestige
+            </button>
+            <button type="button" class="preset-pill" onclick="applyTicketPreset('conference-tech')">
+              🎟️ Conférence Tech
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bandeau Déverrouillage Admin Rapide si non connecté -->
+      <div id="gen-auth-banner" class="gen-auth-banner" style="display: none;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <i class="fa-solid fa-lock" style="color: #f59e0b; font-size: 1.25rem;"></i>
+          <div>
+            <strong>Mode Créateur Administrateur</strong>
+            <div style="font-size: 0.8125rem; color: #64748b;">Connectez-vous pour enregistrer des billets dans la base de données.</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" onclick="quickAdminLogin()" id="btn-quick-admin-login">
+          <i class="fa-solid fa-bolt"></i> Connexion Démo 1-Clic (admin)
+        </button>
+      </div>
+
+      <!-- Grille Principale du Studio : Formulaire à Gauche + Pass 3D à Droite -->
+      <div class="generator-split-layout">
+        <!-- Colonne Gauche : Formulaire de Création -->
+        <div class="card generator-form-card">
+          <div class="generator-card-header">
+            <h3><i class="fa-solid fa-sliders" style="color: #2563eb;"></i> Configuration du Billet</h3>
+            <span class="badge badge-actif"><i class="fa-solid fa-bolt"></i> En direct</span>
+          </div>
+
+          <form id="ticket-generator-form">
+            <div class="form-group">
+              <label for="gen-event-name" class="form-label">Nom de l'Événement ou du Billet *</label>
+              <input type="text" id="gen-event-name" class="form-input" placeholder="Ex : Festival Yaakar Dakar 2026" required value="Festival Yaakar Dakar 2026">
+            </div>
+
+            <!-- Choix du Thème Visuel (Cool Themes) -->
+            <div class="form-group">
+              <label class="form-label">Thème Visuel & Hologramme</label>
+              <div class="theme-selector-grid">
+                <label class="theme-choice active" data-theme="gold">
+                  <input type="radio" name="gen-theme" value="gold" checked>
+                  <span class="theme-dot gold"></span>
+                  <span class="theme-name">Or Prestige</span>
+                </label>
+                <label class="theme-choice" data-theme="cyber">
+                  <input type="radio" name="gen-theme" value="cyber">
+                  <span class="theme-dot cyber"></span>
+                  <span class="theme-name">Cyber Néon</span>
+                </label>
+                <label class="theme-choice" data-theme="emerald">
+                  <input type="radio" name="gen-theme" value="emerald">
+                  <span class="theme-dot emerald"></span>
+                  <span class="theme-name">Émeraude</span>
+                </label>
+                <label class="theme-choice" data-theme="purple">
+                  <input type="radio" name="gen-theme" value="purple">
+                  <span class="theme-dot purple"></span>
+                  <span class="theme-name">Améthyste</span>
+                </label>
+                <label class="theme-choice" data-theme="crimson">
+                  <input type="radio" name="gen-theme" value="crimson">
+                  <span class="theme-dot crimson"></span>
+                  <span class="theme-name">Rubis VIP</span>
+                </label>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <label for="gen-category" class="form-label">Catégorie / Formule</label>
+                <select id="gen-category" class="form-select">
+                  <option value="Pass VIP Or" selected>👑 Pass VIP Or</option>
+                  <option value="Accès Platine">💎 Accès Platine</option>
+                  <option value="Billet Standard">⚡ Billet Standard</option>
+                  <option value="Early Bird">🎟️ Early Bird</option>
+                  <option value="Invité d'Honneur">✨ Invité d'Honneur</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="gen-price" class="form-label">Tarif affiché</label>
+                <input type="text" id="gen-price" class="form-input" placeholder="Ex : 25 000 FCFA" value="25 000 FCFA">
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <label for="gen-holder-name" class="form-label">Nom du Bénéficiaire (Optionnel)</label>
+                <input type="text" id="gen-holder-name" class="form-input" placeholder="Ex : Mamadou Diallo" value="Mamadou Diallo">
+              </div>
+
+              <div class="form-group">
+                <label for="gen-seat" class="form-label">Place / Zone réservée</label>
+                <input type="text" id="gen-seat" class="form-input" placeholder="Ex : Carré VIP - Rangée 1" value="Carré VIP - Place A-01">
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <label for="gen-valid-until" class="form-label">Date de Fin de Validité</label>
+                <input type="date" id="gen-valid-until" class="form-input">
+              </div>
+
+              <div class="form-group">
+                <label for="gen-count" class="form-label">Quantité de billets</label>
+                <select id="gen-count" class="form-select">
+                  <option value="1" selected>1 Billet individuel</option>
+                  <option value="5">Lot de 5 Billets</option>
+                  <option value="10">Lot de 10 Billets</option>
+                  <option value="25">Lot de 25 Billets</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                <label for="gen-prefix" class="form-label" style="margin: 0;">Préfixe du Code Unique</label>
+                <span style="font-size: 0.75rem; color: #64748b;">Format : <code>PREFIXE-2026-XXXX</code></span>
+              </div>
+              <input type="text" id="gen-prefix" class="form-input uppercase" placeholder="Ex : VIP, FEST, PASS" value="VIP" maxlength="8">
+            </div>
+
+            <div id="gen-alert-box" class="toast error" style="display: none; margin-bottom: 1rem; width: 100%;"></div>
+
+            <button type="submit" id="btn-submit-generator" class="btn-generate-action">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Générer le Ticket Authentique
+            </button>
+          </form>
+        </div>
+
+        <!-- Colonne Droite : Prévisualisation 3D Interactive (Le Cool Pass) -->
+        <div class="generator-preview-panel">
+          <div class="preview-panel-header">
+            <div>
+              <span class="preview-badge"><i class="fa-solid fa-eye"></i> Rendu Réaliste 3D</span>
+              <h4>Aperçu du Pass Holographique</h4>
+            </div>
+            <button type="button" class="btn-sound-toggle" id="btn-toggle-sound" title="Activer / Désactiver les effets sonores">
+              <i class="fa-solid fa-volume-high"></i>
+            </button>
+          </div>
+
+          <!-- LA CARTE TICKET 3D HOLOGRAPHIQUE INTERACTIVE -->
+          <div class="ticket-3d-scene" id="ticket-3d-scene">
+            <div class="cool-pass-card theme-gold" id="cool-pass-card">
+              <!-- Couche de brillance holographique -->
+              <div class="cool-pass-sheen"></div>
+
+              <!-- En-tête du Pass -->
+              <div class="cool-pass-header">
+                <div class="cool-pass-brand">
+                  <div class="cool-pass-logo">
+                    <img src="/images/shield-badge.jpg" alt="Logo de Sécurité">
+                  </div>
+                  <div>
+                    <span class="cool-pass-auth-tag"><i class="fa-solid fa-shield-halved"></i> CERTIFIÉ AUTHENTIQUE</span>
+                    <h3 class="cool-pass-event-title" id="preview-event-name">Festival Yaakar Dakar 2026</h3>
+                  </div>
+                </div>
+                <div class="cool-pass-category-chip" id="preview-category">
+                  👑 Pass VIP Or
+                </div>
+              </div>
+
+              <!-- Corps du Pass avec données -->
+              <div class="cool-pass-body">
+                <div class="cool-pass-details-grid">
+                  <div class="cool-pass-detail-cell">
+                    <span class="cool-label">Bénéficiaire</span>
+                    <strong class="cool-val" id="preview-holder-name">Mamadou Diallo</strong>
+                  </div>
+                  <div class="cool-pass-detail-cell">
+                    <span class="cool-label">Place / Zone</span>
+                    <strong class="cool-val" id="preview-seat">Carré VIP - Place A-01</strong>
+                  </div>
+                  <div class="cool-pass-detail-cell">
+                    <span class="cool-label">Tarif</span>
+                    <strong class="cool-val" id="preview-price">25 000 FCFA</strong>
+                  </div>
+                  <div class="cool-pass-detail-cell">
+                    <span class="cool-label">Statut Système</span>
+                    <span class="badge badge-actif"><i class="fa-solid fa-circle-check"></i> Prêt à certifier</span>
+                  </div>
+                </div>
+
+                <!-- Code Unique & QR Code -->
+                <div class="cool-pass-code-zone">
+                  <div class="cool-pass-code-left">
+                    <span class="cool-label">Code d'Authenticité Unique</span>
+                    <div class="cool-pass-code-pill" id="preview-ticket-code">VIP-2026-X892</div>
+                    <div class="cool-barcode-display">
+                      <div class="cool-barcode-lines"></div>
+                      <span class="cool-barcode-text" id="preview-barcode-text">*VIP-2026-X892*</span>
+                    </div>
+                  </div>
+                  <div class="cool-pass-qr-box">
+                    <img id="preview-qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=VIP-2026-X892" alt="QR Code Sécurité">
+                    <span class="cool-qr-caption"><i class="fa-solid fa-qrcode"></i> Scannable</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Ligne de perforation réaliste avec encoches circulaires -->
+              <div class="cool-pass-perforation">
+                <div class="cool-notch left"></div>
+                <div class="cool-perforation-dashed"></div>
+                <div class="cool-notch right"></div>
+              </div>
+
+              <!-- Talon détachable (Stub) de sécurité -->
+              <div class="cool-pass-stub">
+                <div class="cool-stub-info">
+                  <i class="fa-solid fa-ticket-simple"></i>
+                  <span>Billet Anti-fraude &bull; Cryptographie Active &bull; Contrôle d'Accès Instantané</span>
+                </div>
+                <div class="cool-stub-stamp">
+                  OFFICIEL 2026
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="preview-interaction-hint">
+            <i class="fa-solid fa-hand-pointer"></i> <span>Bougez la souris ou touchez le pass pour admirer l'effet 3D holographique.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- DECK DE RÉSULTAT APRÈS GÉNÉRATION (Action Immédiate pour Vérifier) -->
+      <div id="generator-result-deck" class="generator-result-deck" style="display: none;">
+        <div class="result-deck-card">
+          <div class="result-deck-header">
+            <div class="result-celebration-badge">
+              <i class="fa-solid fa-circle-check" style="color: #10b981;"></i> Ticket Enregistré avec Succès dans la Base Persistante !
+            </div>
+            <h3 id="result-ticket-title">Ticket VIP-2026-XXXX Prêt pour le Contrôle</h3>
+            <p>Ce ticket est désormais officiellement reconnu par le système. Choisissez une action ci-dessous :</p>
+          </div>
+
+          <!-- LES 4 BOUTONS D'ACTION COOL DONT LA VÉRIFICATION IMMÉDIATE -->
+          <div class="result-actions-grid">
+            <!-- BOUTON 1 : VÉRIFIER MAINTENANT (Le cœur de la demande de l'utilisateur !) -->
+            <button type="button" class="result-action-btn verify-hero" id="btn-result-verify-now" onclick="verifyGeneratedTicketNow()">
+              <div class="action-btn-icon"><i class="fa-solid fa-shield-halved"></i></div>
+              <div class="action-btn-text">
+                <strong>Vérifier ce ticket maintenant</strong>
+                <span>Tester la certification instantanée en 1 clic</span>
+              </div>
+              <i class="fa-solid fa-arrow-right action-arrow"></i>
+            </button>
+
+            <!-- BOUTON 2 : SCANNER AVEC CAMÉRA -->
+            <button type="button" class="result-action-btn camera-test" onclick="testScanGeneratedTicket()">
+              <div class="action-btn-icon"><i class="fa-solid fa-camera"></i></div>
+              <div class="action-btn-text">
+                <strong>Scanner avec la caméra</strong>
+                <span>Flasher le QR code avec votre téléphone</span>
+              </div>
+              <i class="fa-solid fa-arrow-right action-arrow"></i>
+            </button>
+
+            <!-- BOUTON 3 : IMPRIMER LE BILLET -->
+            <button type="button" class="result-action-btn print-pass" onclick="printGeneratedPass()">
+              <div class="action-btn-icon"><i class="fa-solid fa-print"></i></div>
+              <div class="action-btn-text">
+                <strong>Imprimer le Billet Réel</strong>
+                <span>Format pass détachable prêt à être découpé</span>
+              </div>
+              <i class="fa-solid fa-arrow-right action-arrow"></i>
+            </button>
+
+            <!-- BOUTON 4 : PARTAGER SUR WHATSAPP -->
+            <button type="button" class="result-action-btn whatsapp-share" onclick="shareGeneratedTicketWhatsApp()">
+              <div class="action-btn-icon"><i class="fa-brands fa-whatsapp"></i></div>
+              <div class="action-btn-text">
+                <strong>Partager sur WhatsApp</strong>
+                <span>Envoyer le pass et le lien de contrôle direct</span>
+              </div>
+              <i class="fa-solid fa-arrow-right action-arrow"></i>
+            </button>
+          </div>
+
+          <!-- Si plusieurs tickets ont été générés en lot -->
+          <div id="generator-batch-container" style="display: none; margin-top: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+              <h4 style="font-size: 1rem; font-weight: 700; color: #0f172a;">
+                <i class="fa-solid fa-layer-group" style="color: #2563eb;"></i> Galerie des tickets du lot
+              </h4>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="exportGeneratedBatchCsv()">
+                <i class="fa-solid fa-file-csv"></i> Télécharger la liste (CSV)
+              </button>
+            </div>
+            <div class="generator-batch-scroll-row" id="generator-batch-list">
+              <!-- Rempli dynamiquement -->
+            </div>
+          </div>
         </div>
       </div>
     </section>

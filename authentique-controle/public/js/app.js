@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initVerification();
   initCameraScanner();
   initTicketQrModal();
+  initGenerator();
   initTicketManagement();
   initHistory();
   initAuth();
@@ -87,6 +88,8 @@ function switchTab(tabId) {
     loadTickets();
   } else if (tabId === 'history') {
     loadHistory();
+  } else if (tabId === 'generator') {
+    updateGeneratorAuthBanner();
   } else if (tabId === 'verify') {
     const input = document.getElementById('verify-code-input');
     if (input) input.focus();
@@ -1544,3 +1547,667 @@ function showTicketQrModal(ticketId) {
 
   openModal('modal-ticket-qr');
 }
+
+/* ==========================================================================
+   MODULE GÉNÉRATEUR DE TICKETS & PASS HOLOGRAPHIQUES ("COOL STUDIO")
+   ========================================================================== */
+state.lastGeneratedTicket = null;
+state.lastGeneratedBatch = [];
+state.soundEnabled = localStorage.getItem('sound_enabled') !== 'false';
+
+// Modèles prédéfinis de billets (Cool Presets)
+const TICKET_PRESETS = {
+  'concert-vip': {
+    name: 'Concert Live Dakar 2026',
+    theme: 'gold',
+    category: 'Pass VIP Or',
+    holder: 'Mamadou Diallo',
+    seat: 'Loge VIP - Table 04',
+    price: '35 000 FCFA',
+    prefix: 'VIP'
+  },
+  'festival-pass': {
+    name: 'Festival Yaakar Électro 2026',
+    theme: 'cyber',
+    category: 'Billet Standard',
+    holder: 'Pass Festivalier',
+    seat: 'Fosse Centrale - Accès Général',
+    price: '15 000 FCFA',
+    prefix: 'FEST'
+  },
+  'gala-prestige': {
+    name: 'Gala Prestige de Bienfaisance',
+    theme: 'emerald',
+    category: 'Accès Platine',
+    holder: 'Aïssatou Sow',
+    seat: 'Table d\'Honneur - Siège 2',
+    price: '50 000 FCFA',
+    prefix: 'GALA'
+  },
+  'conference-tech': {
+    name: 'Sommet Tech & Innovation 2026',
+    theme: 'purple',
+    category: 'Early Bird',
+    holder: 'Participant Pro',
+    seat: 'Amphithéâtre A - Siège B12',
+    price: '20 000 FCFA',
+    prefix: 'TECH'
+  }
+};
+
+function initGenerator() {
+  init3DCardTilt();
+  initGeneratorLiveSync();
+  initSoundToggle();
+  updateGeneratorAuthBanner();
+
+  const form = document.getElementById('ticket-generator-form');
+  if (form) {
+    form.addEventListener('submit', handleGeneratorSubmit);
+  }
+}
+
+// Synchronisation en direct entre formulaire et pass 3D
+function initGeneratorLiveSync() {
+  const eventInput = document.getElementById('gen-event-name');
+  const catInput = document.getElementById('gen-category');
+  const holderInput = document.getElementById('gen-holder-name');
+  const seatInput = document.getElementById('gen-seat');
+  const priceInput = document.getElementById('gen-price');
+  const prefixInput = document.getElementById('gen-prefix');
+
+  if (eventInput) {
+    eventInput.addEventListener('input', () => {
+      document.getElementById('preview-event-name').textContent = eventInput.value.trim() || 'Titre de l\'Événement';
+    });
+  }
+
+  if (catInput) {
+    catInput.addEventListener('change', () => {
+      document.getElementById('preview-category').textContent = catInput.value;
+    });
+  }
+
+  if (holderInput) {
+    holderInput.addEventListener('input', () => {
+      document.getElementById('preview-holder-name').textContent = holderInput.value.trim() || 'Titulaire';
+    });
+  }
+
+  if (seatInput) {
+    seatInput.addEventListener('input', () => {
+      document.getElementById('preview-seat').textContent = seatInput.value.trim() || 'Accès Général';
+    });
+  }
+
+  if (priceInput) {
+    priceInput.addEventListener('input', () => {
+      document.getElementById('preview-price').textContent = priceInput.value.trim() || 'Gratuit';
+    });
+  }
+
+  if (prefixInput) {
+    prefixInput.addEventListener('input', () => {
+      const pfx = prefixInput.value.trim().toUpperCase() || 'PASS';
+      const sampleCode = `${pfx}-2026-X892`;
+      document.getElementById('preview-ticket-code').textContent = sampleCode;
+      document.getElementById('preview-barcode-text').textContent = `*${sampleCode}*`;
+      document.getElementById('preview-qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(sampleCode)}`;
+    });
+  }
+
+  // Sélecteur de thèmes
+  document.querySelectorAll('.theme-choice').forEach(choice => {
+    choice.addEventListener('click', () => {
+      document.querySelectorAll('.theme-choice').forEach(c => c.classList.remove('active'));
+      choice.classList.add('active');
+      const radio = choice.querySelector('input[type="radio"]');
+      if (radio) radio.checked = true;
+
+      const theme = choice.getAttribute('data-theme');
+      applyVisualTheme(theme);
+    });
+  });
+}
+
+function applyVisualTheme(themeName) {
+  const card = document.getElementById('cool-pass-card');
+  if (!card) return;
+  card.className = `cool-pass-card theme-${themeName}`;
+}
+
+// Appliquer un préréglage complet en 1 clic
+function applyTicketPreset(presetKey) {
+  const preset = TICKET_PRESETS[presetKey];
+  if (!preset) return;
+
+  document.getElementById('gen-event-name').value = preset.name;
+  document.getElementById('gen-category').value = preset.category;
+  document.getElementById('gen-holder-name').value = preset.holder;
+  document.getElementById('gen-seat').value = preset.seat;
+  document.getElementById('gen-price').value = preset.price;
+  document.getElementById('gen-prefix').value = preset.prefix;
+
+  // Thème
+  document.querySelectorAll('.theme-choice').forEach(choice => {
+    if (choice.getAttribute('data-theme') === preset.theme) {
+      choice.classList.add('active');
+      choice.querySelector('input').checked = true;
+    } else {
+      choice.classList.remove('active');
+    }
+  });
+
+  applyVisualTheme(preset.theme);
+
+  // Mettre à jour l'aperçu
+  document.getElementById('preview-event-name').textContent = preset.name;
+  document.getElementById('preview-category').textContent = preset.category;
+  document.getElementById('preview-holder-name').textContent = preset.holder;
+  document.getElementById('preview-seat').textContent = preset.seat;
+  document.getElementById('preview-price').textContent = preset.price;
+  const sampleCode = `${preset.prefix}-2026-X892`;
+  document.getElementById('preview-ticket-code').textContent = sampleCode;
+  document.getElementById('preview-barcode-text').textContent = `*${sampleCode}*`;
+  document.getElementById('preview-qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(sampleCode)}`;
+
+  playLaserScanSound();
+  showToast(`Modèle "${preset.name}" appliqué !`, "success");
+}
+
+// Effet 3D Tilt interactif réaliste
+function init3DCardTilt() {
+  const scene = document.getElementById('ticket-3d-scene');
+  const card = document.getElementById('cool-pass-card');
+  if (!scene || !card) return;
+
+  scene.addEventListener('mousemove', (e) => {
+    const rect = scene.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    const rotateX = ((y - centerY) / centerY) * -12;
+    const rotateY = ((x - centerX) / centerX) * 12;
+
+    card.style.transform = `rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) scale3d(1.02, 1.02, 1.02)`;
+  });
+
+  scene.addEventListener('mouseleave', () => {
+    card.style.transform = 'rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+  });
+}
+
+// Mise à jour du bandeau d'authentification
+function updateGeneratorAuthBanner() {
+  const banner = document.getElementById('gen-auth-banner');
+  if (!banner) return;
+  if (state.currentUser) {
+    banner.style.display = 'none';
+  } else {
+    banner.style.display = 'flex';
+  }
+}
+
+// Connexion Admin 1-Clic Démo
+async function quickAdminLogin() {
+  const btn = document.getElementById('btn-quick-admin-login');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Connexion...`;
+  }
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'admin', password: 'admin1234' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      state.currentUser = data.user;
+      updateAuthUI();
+      updateGeneratorAuthBanner();
+      playSuccessChime();
+      showToast("Connecté avec succès en tant qu'administrateur !", "success");
+    } else {
+      showToast(data.message || "Erreur de connexion.", "error");
+    }
+  } catch (err) {
+    showToast("Impossible de se connecter au serveur.", "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fa-solid fa-bolt"></i> Connexion Démo 1-Clic (admin)`;
+    }
+  }
+}
+
+// Traitement de la génération de ticket(s)
+async function handleGeneratorSubmit(e) {
+  e.preventDefault();
+
+  // Si non connecté, proposer connexion 1-clic automatique
+  if (!state.currentUser) {
+    await quickAdminLogin();
+    if (!state.currentUser) {
+      showToast("Veuillez vous connecter en tant qu'administrateur pour générer des billets.", "error");
+      return;
+    }
+  }
+
+  const name = document.getElementById('gen-event-name').value.trim();
+  const category = document.getElementById('gen-category').value;
+  const holder_name = document.getElementById('gen-holder-name').value.trim();
+  const seat = document.getElementById('gen-seat').value.trim();
+  const price = document.getElementById('gen-price').value.trim();
+  const valid_until = document.getElementById('gen-valid-until').value;
+  const count = parseInt(document.getElementById('gen-count').value, 10) || 1;
+  const prefix = document.getElementById('gen-prefix').value.trim();
+
+  const themeRadio = document.querySelector('input[name="gen-theme"]:checked');
+  const theme = themeRadio ? themeRadio.value : 'gold';
+
+  const alertBox = document.getElementById('gen-alert-box');
+  const submitBtn = document.getElementById('btn-submit-generator');
+
+  alertBox.style.display = 'none';
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Génération et certification...`;
+
+  try {
+    const res = await fetch('/api/tickets/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        category,
+        theme,
+        holder_name,
+        seat,
+        price,
+        valid_until,
+        count,
+        prefix
+      })
+    });
+
+    const data = await res.json();
+
+    if (!data.success) {
+      alertBox.textContent = data.message || "Erreur lors de la génération.";
+      alertBox.style.display = 'block';
+      showToast(data.message || "Échec de génération.", "error");
+      return;
+    }
+
+    // Succès !
+    state.lastGeneratedTicket = data.ticket;
+    state.lastGeneratedBatch = data.tickets || [data.ticket];
+
+    // Mettre à jour la carte 3D avec le code réel généré
+    const officialCode = data.ticket.code;
+    document.getElementById('preview-ticket-code').textContent = officialCode;
+    document.getElementById('preview-barcode-text').textContent = `*${officialCode}*`;
+    document.getElementById('preview-qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(officialCode)}`;
+
+    // Afficher le deck de résultat
+    const resultDeck = document.getElementById('generator-result-deck');
+    resultDeck.style.display = 'block';
+    document.getElementById('result-ticket-title').textContent = count === 1 
+      ? `Ticket "${officialCode}" Prêt pour le Contrôle`
+      : `${count} Tickets Générés avec Succès (Code principal : ${officialCode})`;
+
+    // Lot de billets si > 1
+    const batchContainer = document.getElementById('generator-batch-container');
+    const batchList = document.getElementById('generator-batch-list');
+    if (count > 1 && data.tickets) {
+      batchContainer.style.display = 'block';
+      batchList.innerHTML = data.tickets.map(t => `
+        <div class="batch-ticket-chip">
+          <strong>${escapeHtml(t.code)}</strong>
+          <span style="font-size: 0.8125rem; color: #475569;">${escapeHtml(t.name)}</span>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="verifySpecificCode('${escapeHtml(t.code)}')">
+            <i class="fa-solid fa-shield-halved" style="color: #2563eb;"></i> Vérifier ce ticket
+          </button>
+        </div>
+      `).join('');
+    } else {
+      batchContainer.style.display = 'none';
+    }
+
+    // Scroll vers le résultat
+    resultDeck.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    // Célébration spectaculaire : Confettis + Son futuriste !
+    fireConfetti();
+    playFuturisticSound();
+    showToast(data.message, "success");
+
+    // Actualiser les statistiques et la liste des tickets en arrière-plan
+    loadStatsSummaryOnly();
+
+  } catch (err) {
+    console.error('Erreur génération ticket:', err);
+    alertBox.textContent = "Impossible de communiquer avec le serveur.";
+    alertBox.style.display = 'block';
+    showToast("Erreur de connexion.", "error");
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Générer le Ticket Authentique`;
+  }
+}
+
+// ==========================================================================
+// ACTION 1 : VÉRIFIER LE TICKET GÉNÉRÉ MAINTENANT (Cœur de la demande !)
+// ==========================================================================
+async function verifyGeneratedTicketNow() {
+  if (!state.lastGeneratedTicket || !state.lastGeneratedTicket.code) {
+    showToast("Aucun ticket récemment généré à vérifier.", "warning");
+    return;
+  }
+
+  const codeToVerify = state.lastGeneratedTicket.code;
+
+  // 1. Basculer sur l'onglet Vérifier
+  switchTab('verify');
+
+  // 2. Remplir le champ de recherche
+  const input = document.getElementById('verify-code-input');
+  const clearBtn = document.getElementById('btn-clear-code');
+  if (input) {
+    input.value = codeToVerify;
+    if (clearBtn) clearBtn.style.display = 'block';
+  }
+
+  // 3. Défiler tout en haut en douceur
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // 4. Jouer le son de certification et lancer la vérification immédiatement
+  playSuccessChime();
+  await performVerification();
+  showToast(`Ticket ${codeToVerify} certifié avec succès !`, "success");
+}
+
+function verifySpecificCode(code) {
+  switchTab('verify');
+  const input = document.getElementById('verify-code-input');
+  const clearBtn = document.getElementById('btn-clear-code');
+  if (input) {
+    input.value = code;
+    if (clearBtn) clearBtn.style.display = 'block';
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  playSuccessChime();
+  performVerification();
+}
+
+// ==========================================================================
+// ACTION 2 : TESTER LE SCAN CAMÉRA
+// ==========================================================================
+function testScanGeneratedTicket() {
+  if (!state.lastGeneratedTicket) return;
+  showTicketQrModal(state.lastGeneratedTicket.id);
+  playLaserScanSound();
+}
+
+// ==========================================================================
+// ACTION 3 : IMPRIMER LE BILLET / PASS RÉEL
+// ==========================================================================
+function printGeneratedPass() {
+  playLaserScanSound();
+  window.print();
+}
+
+// ==========================================================================
+// ACTION 4 : PARTAGER SUR WHATSAPP
+// ==========================================================================
+function shareGeneratedTicketWhatsApp() {
+  if (!state.lastGeneratedTicket) return;
+  const t = state.lastGeneratedTicket;
+  const origin = window.location.origin;
+
+  const message = `🎟️ *VOTRE BILLET OFFICIEL ET SÉCURISÉ*\n\n` +
+    `📌 *Événement :* ${t.name}\n` +
+    `🔑 *Code Unique :* ${t.code}\n` +
+    `✅ *Statut :* Authentique & Garanti\n\n` +
+    `🔍 Pour certifier et vérifier l'authenticité de votre pass en 1 clic :\n` +
+    `${origin}\n\n` +
+    `_Conservez ce message pour le contrôle d'accès à l'entrée._`;
+
+  const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+  window.open(url, '_blank');
+  showToast("Lien WhatsApp ouvert !", "success");
+}
+
+// Exporter la liste des tickets générés en CSV
+function exportGeneratedBatchCsv() {
+  if (!state.lastGeneratedBatch || state.lastGeneratedBatch.length === 0) return;
+
+  const header = ['Code', 'Nom / Événement', 'Description', 'Statut', 'Date de création'];
+  const rows = state.lastGeneratedBatch.map(t => [
+    `"${t.code}"`,
+    `"${t.name.replace(/"/g, '""')}"`,
+    `"${(t.description || '').replace(/"/g, '""')}"`,
+    `"${t.status}"`,
+    `"${t.created_at}"`
+  ]);
+
+  const csvContent = '\uFEFF' + [header.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `lot-tickets-${Date.now()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast("Fichier CSV téléchargé avec succès !", "success");
+}
+
+// ==========================================================================
+// EFFETS SONORES HAUTE TECHNOLOGIE (Web Audio API - Zéro latence)
+// ==========================================================================
+function initSoundToggle() {
+  const btn = document.getElementById('btn-toggle-sound');
+  if (!btn) return;
+
+  updateSoundButtonUI(btn);
+
+  btn.addEventListener('click', () => {
+    state.soundEnabled = !state.soundEnabled;
+    localStorage.setItem('sound_enabled', state.soundEnabled ? 'true' : 'false');
+    updateSoundButtonUI(btn);
+    if (state.soundEnabled) {
+      playSuccessChime();
+      showToast("Effets sonores activés", "success");
+    } else {
+      showToast("Effets sonores désactivés", "info");
+    }
+  });
+}
+
+function updateSoundButtonUI(btn) {
+  if (state.soundEnabled) {
+    btn.innerHTML = `<i class="fa-solid fa-volume-high"></i>`;
+    btn.classList.remove('muted');
+  } else {
+    btn.innerHTML = `<i class="fa-solid fa-volume-xmark"></i>`;
+    btn.classList.add('muted');
+  }
+}
+
+function playFuturisticSound() {
+  if (!state.soundEnabled) return;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+
+    // 1. Synthétiseur balayage montant (Glissando cyber)
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(320, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.18);
+    osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.35);
+
+    gain.gain.setValueAtTime(0.01, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+
+    // 2. Chime cristallin aigu
+    const chime = ctx.createOscillator();
+    const chimeGain = ctx.createGain();
+    chime.type = 'triangle';
+    chime.frequency.setValueAtTime(1760, ctx.currentTime + 0.15); // A6
+    chimeGain.gain.setValueAtTime(0.18, ctx.currentTime + 0.15);
+    chimeGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+
+    chime.connect(chimeGain);
+    chimeGain.connect(ctx.destination);
+    chime.start(ctx.currentTime + 0.15);
+    chime.stop(ctx.currentTime + 0.6);
+  } catch (e) {}
+}
+
+function playSuccessChime() {
+  if (!state.soundEnabled) return;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+
+    // Accord majeur triomphal (C5, E5, G5, C6)
+    const notes = [523.25, 659.25, 783.99, 1046.50];
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const startTime = ctx.currentTime + idx * 0.06;
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0.2, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + 0.4);
+    });
+  } catch (e) {}
+}
+
+function playLaserScanSound() {
+  if (!state.soundEnabled) return;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(1400, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.15);
+
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+  } catch (e) {}
+}
+
+// ==========================================================================
+// FEU D'ARTIFICE DE CONFETTIS (Canvas Léger et Indépendant)
+// ==========================================================================
+function fireConfetti() {
+  let canvas = document.getElementById('confetti-canvas');
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.id = 'confetti-canvas';
+    canvas.style.position = 'fixed';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
+    canvas.style.pointerEvents = 'none';
+    canvas.style.zIndex = '99999';
+    document.body.appendChild(canvas);
+  }
+
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  const particles = [];
+  const colors = ['#2563eb', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#e2e8f0'];
+
+  for (let i = 0; i < 90; i++) {
+    particles.push({
+      x: window.innerWidth / 2,
+      y: window.innerHeight * 0.45,
+      vx: (Math.random() - 0.5) * 18,
+      vy: (Math.random() - 0.75) * 22,
+      size: Math.random() * 8 + 4,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rotation: Math.random() * 360,
+      vRot: (Math.random() - 0.5) * 14,
+      gravity: 0.45,
+      opacity: 1
+    });
+  }
+
+  let animationFrame;
+  function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = false;
+
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += p.gravity;
+      p.rotation += p.vRot;
+      p.opacity -= 0.012;
+
+      if (p.opacity > 0) {
+        alive = true;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate((p.rotation * Math.PI) / 180);
+        ctx.globalAlpha = Math.max(0, p.opacity);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.7);
+        ctx.restore();
+      }
+    });
+
+    if (alive) {
+      animationFrame = requestAnimationFrame(render);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      cancelAnimationFrame(animationFrame);
+    }
+  }
+  render();
+}
+
+// Expose les fonctions globales pour les événements HTML
+window.applyTicketPreset = applyTicketPreset;
+window.quickAdminLogin = quickAdminLogin;
+window.verifyGeneratedTicketNow = verifyGeneratedTicketNow;
+window.verifySpecificCode = verifySpecificCode;
+window.testScanGeneratedTicket = testScanGeneratedTicket;
+window.printGeneratedPass = printGeneratedPass;
+window.shareGeneratedTicketWhatsApp = shareGeneratedTicketWhatsApp;
+window.exportGeneratedBatchCsv = exportGeneratedBatchCsv;
+

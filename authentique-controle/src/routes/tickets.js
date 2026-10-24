@@ -60,6 +60,134 @@ router.get('/:id', (req, res) => {
   }
 });
 
+// POST /api/tickets/generate - Générateur intelligent de tickets (Unique ou Lot)
+router.post('/generate', requireAuth, (req, res) => {
+  try {
+    const {
+      name,
+      category = 'VIP',
+      theme = 'gold',
+      holder_name = '',
+      seat = '',
+      price = '',
+      valid_until = null,
+      prefix = '',
+      custom_code = '',
+      count = 1
+    } = req.body;
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Le nom ou l'événement du ticket est obligatoire."
+      });
+    }
+
+    const cleanName = String(name).trim();
+    const cleanCategory = String(category).trim() || 'VIP';
+    const cleanTheme = String(theme).trim() || 'gold';
+    const cleanHolder = holder_name ? String(holder_name).trim() : '';
+    const cleanSeat = seat ? String(seat).trim() : '';
+    const cleanPrice = price ? String(price).trim() : '';
+    const cleanValidUntil = valid_until ? String(valid_until).trim() : null;
+    const ticketCount = Math.min(Math.max(parseInt(count, 10) || 1, 1), 50);
+
+    const year = new Date().getFullYear();
+    const basePrefix = (prefix && String(prefix).trim())
+      ? String(prefix).trim().replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+      : cleanCategory.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6) || 'PASS';
+
+    const randomChars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const generatedTickets = [];
+    const now = new Date().toISOString();
+
+    const insertStmt = db.prepare(`
+      INSERT INTO tickets (code, name, description, status, valid_until, usage_count, created_at)
+      VALUES (?, ?, ?, 'Actif', ?, 0, ?)
+    `);
+
+    for (let i = 0; i < ticketCount; i++) {
+      let codeToUse;
+      if (ticketCount === 1 && custom_code && String(custom_code).trim()) {
+        codeToUse = String(custom_code).trim().toUpperCase();
+        const existing = db.prepare('SELECT id FROM tickets WHERE UPPER(code) = UPPER(?)').get(codeToUse);
+        if (existing) {
+          return res.status(409).json({
+            success: false,
+            message: `Ce ticket existe déjà : "${codeToUse}".`
+          });
+        }
+      } else {
+        let uniqueFound = false;
+        let attempts = 0;
+        while (!uniqueFound && attempts < 100) {
+          attempts++;
+          let randPart = '';
+          for (let k = 0; k < 4; k++) {
+            randPart += randomChars.charAt(Math.floor(Math.random() * randomChars.length));
+          }
+          const candidate = ticketCount > 1
+            ? `${basePrefix}-${year}-${String(i + 1).padStart(2, '0')}${randPart.slice(0, 2)}`
+            : `${basePrefix}-${year}-${randPart}`;
+
+          const existing = db.prepare('SELECT id FROM tickets WHERE UPPER(code) = UPPER(?)').get(candidate);
+          if (!existing) {
+            codeToUse = candidate;
+            uniqueFound = true;
+          }
+        }
+        if (!codeToUse) {
+          codeToUse = `${basePrefix}-${Date.now().toString(36).toUpperCase()}`;
+        }
+      }
+
+      // Format description with metadata
+      const descParts = [];
+      descParts.push(`Catégorie : ${cleanCategory}`);
+      if (cleanHolder) descParts.push(`Titulaire : ${cleanHolder}`);
+      if (cleanSeat) descParts.push(`Place : ${cleanSeat}`);
+      if (cleanPrice) descParts.push(`Tarif : ${cleanPrice}`);
+      descParts.push(`Thème : ${cleanTheme}`);
+      const fullDescription = descParts.join(' | ');
+
+      const ticketDisplayName = ticketCount > 1
+        ? `${cleanName} (#${i + 1} - ${cleanCategory})`
+        : `${cleanName} (${cleanCategory})`;
+
+      const result = insertStmt.run(codeToUse, ticketDisplayName, fullDescription, cleanValidUntil, now);
+      const inserted = db.prepare('SELECT * FROM tickets WHERE id = ?').get(result.lastInsertRowid);
+
+      generatedTickets.push({
+        ...inserted,
+        meta: {
+          eventName: cleanName,
+          category: cleanCategory,
+          theme: cleanTheme,
+          holderName: cleanHolder,
+          seat: cleanSeat,
+          price: cleanPrice
+        }
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: ticketCount === 1
+        ? `Ticket "${generatedTickets[0].code}" généré et certifié avec succès !`
+        : `Lot de ${ticketCount} tickets générés et enregistrés avec succès !`,
+      count: ticketCount,
+      ticket: generatedTickets[0],
+      tickets: generatedTickets
+    });
+  } catch (err) {
+    console.error('Erreur génération tickets:', err);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur serveur lors de la génération des tickets."
+    });
+  }
+});
+
 // POST /api/tickets - Créer un nouveau ticket (Admin requis)
 router.post('/', requireAuth, (req, res) => {
   try {
