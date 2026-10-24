@@ -2280,6 +2280,89 @@ function drawFallbackQrGrid(ctx, x, y, size, text) {
   }
 }
 
+// Ouvrir l'image PNG en grand dans un nouvel onglet du navigateur
+function openGeneratedTicketPngInBrowser() {
+  const pngImg = document.getElementById('generated-ticket-png-img');
+  if (!pngImg || !pngImg.src || !pngImg.src.startsWith('data:image/png')) {
+    showToast("Aucune image de ticket à afficher.", "warning");
+    return;
+  }
+  const code = (state.lastGeneratedTicket && state.lastGeneratedTicket.code) || 'officiel';
+  const newWin = window.open('');
+  if (newWin) {
+    newWin.document.write(`
+      <!DOCTYPE html>
+      <html lang="fr">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Billet Authentique - ${code}</title>
+        <style>
+          body {
+            margin: 0;
+            background: #090d16;
+            color: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 24px;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          }
+          img {
+            max-width: 95%;
+            max-height: 75vh;
+            height: auto;
+            border-radius: 14px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            border: 2px solid #334155;
+          }
+          .actions {
+            margin-top: 24px;
+            display: flex;
+            gap: 12px;
+          }
+          button {
+            background: #2563eb;
+            color: #ffffff;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+            transition: all 0.2s;
+          }
+          button:hover { background: #1d4ed8; transform: translateY(-1px); }
+          button.secondary {
+            background: #334155;
+            box-shadow: none;
+          }
+          button.secondary:hover { background: #475569; }
+          .hint {
+            margin-top: 14px;
+            font-size: 13px;
+            color: #94a3b8;
+          }
+        </style>
+      </head>
+      <body>
+        <img src="${pngImg.src}" alt="Billet Authentique ${code}">
+        <div class="actions">
+          <button onclick="window.print()">🖨️ Imprimer ce Billet</button>
+          <button class="secondary" onclick="window.close()">✕ Fermer</button>
+        </div>
+        <div class="hint">💡 Clic droit sur le billet ➔ <strong>« Enregistrer l'image sous... »</strong> pour sauvegarder dans vos dossiers.</div>
+      </body>
+      </html>
+    `);
+    newWin.document.close();
+  }
+}
+
 // Téléchargement propre du fichier PNG en Blob pour téléphone et PC
 function downloadGeneratedTicketPng() {
   const pngImg = document.getElementById('generated-ticket-png-img');
