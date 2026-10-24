@@ -2280,6 +2280,49 @@ function drawFallbackQrGrid(ctx, x, y, size, text) {
   }
 }
 
+// Sauvegarde directe dans la Galerie Photo mobile via Web Share API
+async function saveOrShareToMobileGallery() {
+  const pngImg = document.getElementById('generated-ticket-png-img');
+  if (!pngImg || !pngImg.src || !pngImg.src.startsWith('data:image/png')) {
+    showToast("Aucune image de ticket disponible.", "warning");
+    return;
+  }
+
+  const code = (state.lastGeneratedTicket && state.lastGeneratedTicket.code) || 'officiel';
+  const filename = `billet-authentique-${code}.png`;
+
+  try {
+    const parts = pngImg.src.split(',');
+    const bstr = atob(parts[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    const blob = new Blob([u8arr], { type: 'image/png' });
+    const file = new File([blob], filename, { type: 'image/png' });
+
+    // Si le téléphone supporte le partage de fichiers natif (Safari iOS, Chrome Android)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: `Billet Authentique ${code}`,
+        text: `Billet Officiel Yaakar Dakar 2026 - Code : ${code}`
+      });
+      showToast("Billet partagé / enregistré dans la galerie !", "success");
+      return;
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      return; // Annulation normale par l'utilisateur
+    }
+    console.warn("Partage natif non supporté :", err);
+  }
+
+  // Fallback vers le téléchargement direct
+  downloadGeneratedTicketPng();
+}
+
 // Ouvrir l'image PNG en grand dans un nouvel onglet du navigateur
 function openGeneratedTicketPngInBrowser() {
   const pngImg = document.getElementById('generated-ticket-png-img');

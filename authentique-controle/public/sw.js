@@ -1,4 +1,4 @@
-const CACHE_NAME = 'authentique-controle-v6';
+const CACHE_NAME = 'authentique-controle-v7';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

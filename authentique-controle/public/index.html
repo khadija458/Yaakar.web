@@ -473,21 +473,24 @@
           <!-- VITRINE OFFICIELLE : L'IMAGE DU BILLET EN FORMAT PNG HAUTE DÉFINITION -->
           <div class="generated-png-showcase-box">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
-              <span class="badge badge-actif"><i class="fa-solid fa-image"></i> Image Officielle du Billet (Format PNG HD)</span>
+              <span class="badge badge-actif"><i class="fa-solid fa-image"></i> Billet Officiel Prêt (Galerie & Impression)</span>
               <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button type="button" class="btn btn-success btn-sm" onclick="saveOrShareToMobileGallery()" style="font-weight: 700; background: #059669; border-color: #059669; color: #ffffff;">
+                  <i class="fa-solid fa-mobile-screen-button"></i> Enregistrer dans la Galerie
+                </button>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="openGeneratedTicketPngInBrowser()" style="font-weight: 600;">
                   <i class="fa-solid fa-arrow-up-right-from-square"></i> Ouvrir en grand
                 </button>
                 <button type="button" id="btn-direct-download-png" class="btn btn-primary btn-sm" onclick="downloadGeneratedTicketPng()" style="font-weight: 700;">
-                  <i class="fa-solid fa-download"></i> Télécharger le PNG
+                  <i class="fa-solid fa-download"></i> Télécharger
                 </button>
               </div>
             </div>
             <div class="png-image-wrapper" style="text-align: center; background: #0b1329; padding: 1rem; border-radius: var(--radius-lg); border: 1px solid #1e293b; box-shadow: inset 0 0 30px rgba(0,0,0,0.5); margin-bottom: 0.5rem;">
-              <img id="generated-ticket-png-img" src="" alt="Billet Officiel PNG" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 15px 35px rgba(0,0,0,0.4); display: inline-block;">
+              <img id="generated-ticket-png-img" src="" alt="Billet Officiel PNG" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 15px 35px rgba(0,0,0,0.4); display: inline-block; -webkit-touch-callout: default !important; -webkit-user-select: auto !important; user-select: auto !important; touch-action: manipulation;">
             </div>
-            <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 1.25rem; text-align: center;">
-              💡 <em>Image PNG haute définition générée en direct. Vous pouvez cliquer sur « Ouvrir en grand » pour l'afficher ou faire un clic droit ➔ « Enregistrer l'image sous... ».</em>
+            <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 1.25rem; text-align: center; line-height: 1.5;">
+              📱 <strong>Sur téléphone :</strong> Cliquez sur <strong>« Enregistrer dans la Galerie »</strong> ou maintenez votre doigt appuyé sur l'image ci-dessus puis choisissez <em>« Enregistrer dans Photos »</em> (iPhone) ou <em>« Télécharger l'image »</em> (Android).
             </div>
           </div>
 
@@ -1154,6 +1157,6 @@
   <!-- Bibliothèques de scan, QR local et application -->
   <script src="/js/html5-qrcode.min.js"></script>
   <script src="/js/qrious.min.js"></script>
-  <script src="/js/app.js?v=3.4"></script>
+  <script src="/js/app.js?v=3.5"></script>
 </body>
 </html>
