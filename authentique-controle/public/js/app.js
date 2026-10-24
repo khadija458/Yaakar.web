@@ -36,6 +36,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Load initial data for verification and stats
   loadStats();
+
+  // Handle direct hash or search param navigation (e.g. ?tab=generator or #generator)
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetTab = urlParams.get('tab') || window.location.hash.replace('#', '');
+    if (targetTab && ['verify', 'generator', 'dashboard', 'tickets', 'history', 'settings'].includes(targetTab)) {
+      switchTab(targetTab);
+    }
+  } catch (e) {}
 });
 
 /* ==========================================================================
