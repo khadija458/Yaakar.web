@@ -1609,10 +1609,50 @@ function initGenerator() {
   initGeneratorLiveSync();
   initSoundToggle();
   updateGeneratorAuthBanner();
+  syncCountPills();
 
   const form = document.getElementById('ticket-generator-form');
   if (form) {
     form.addEventListener('submit', handleGeneratorSubmit);
+  }
+}
+
+// Ajustement du nombre de billets
+function adjustTicketCount(delta) {
+  const input = document.getElementById('gen-count');
+  if (!input) return;
+  let val = (parseInt(input.value, 10) || 1) + delta;
+  if (val < 1) val = 1;
+  if (val > 50) val = 50;
+  input.value = val;
+  syncCountPills();
+}
+
+function setTicketCount(val) {
+  const input = document.getElementById('gen-count');
+  if (!input) return;
+  input.value = Math.min(Math.max(val, 1), 50);
+  syncCountPills();
+}
+
+function syncCountPills() {
+  const input = document.getElementById('gen-count');
+  if (!input) return;
+  const val = parseInt(input.value, 10) || 1;
+  document.querySelectorAll('.count-pill').forEach(pill => {
+    const pillVal = parseInt(pill.textContent, 10);
+    if (pillVal === val) {
+      pill.classList.add('active');
+    } else {
+      pill.classList.remove('active');
+    }
+  });
+
+  const submitBtn = document.getElementById('btn-submit-generator');
+  if (submitBtn) {
+    submitBtn.innerHTML = val === 1
+      ? `<i class="fa-solid fa-wand-magic-sparkles"></i> Générer le Ticket Authentique`
+      : `<i class="fa-solid fa-wand-magic-sparkles"></i> Générer le Lot de ${val} Billets Différents`;
   }
 }
 
@@ -1855,33 +1895,46 @@ async function handleGeneratorSubmit(e) {
     state.lastGeneratedTicket = data.ticket;
     state.lastGeneratedBatch = data.tickets || [data.ticket];
 
+    // Rendu haute fidélité PNG pour TOUS les billets du lot
+    for (let i = 0; i < state.lastGeneratedBatch.length; i++) {
+      const t = state.lastGeneratedBatch[i];
+      try {
+        const tTheme = t.meta?.theme || theme;
+        const tHolder = t.meta?.holderName || holder_name || `Titulaire #${i + 1}`;
+        const tSeat = t.meta?.seat || seat || `Place #${i + 1}`;
+        const tPrice = t.meta?.price || price || 'Gratuit';
+        const tCat = t.meta?.category || category;
+        const tEvent = t.meta?.eventName || name;
+
+        const pngUrl = await renderTicketToPng({
+          name: tEvent,
+          code: t.code,
+          category: tCat,
+          theme: tTheme,
+          holderName: tHolder,
+          seat: tSeat,
+          price: tPrice
+        });
+        t.pngDataUrl = pngUrl;
+      } catch (pngErr) {
+        console.warn(`Rendu PNG pour le billet ${t.code} :`, pngErr);
+      }
+    }
+
+    const firstTicket = state.lastGeneratedBatch[0];
+    const officialCode = firstTicket.code;
+
     // Mettre à jour la carte 3D avec le code réel généré
-    const officialCode = data.ticket.code;
     document.getElementById('preview-ticket-code').textContent = officialCode;
     document.getElementById('preview-barcode-text').textContent = `*${officialCode}*`;
     document.getElementById('preview-qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(officialCode)}`;
 
-    // Générer et afficher l'image officielle en format PNG (HD)
-    try {
-      const pngDataUrl = await renderTicketToPng({
-        name,
-        code: officialCode,
-        category,
-        theme,
-        holderName: holder_name,
-        seat,
-        price
-      });
-
-      const pngImg = document.getElementById('generated-ticket-png-img');
-      const dlBtn = document.getElementById('btn-direct-download-png');
-      if (pngImg) pngImg.src = pngDataUrl;
-      if (dlBtn) {
-        dlBtn.href = pngDataUrl;
-        dlBtn.download = `billet-${officialCode}.png`;
-      }
-    } catch (pngErr) {
-      console.warn("Rendu PNG en cours...", pngErr);
+    // Afficher l'image PNG officielle dans la vitrine principale
+    const pngImg = document.getElementById('generated-ticket-png-img');
+    const dlBtn = document.getElementById('btn-direct-download-png');
+    if (pngImg && firstTicket.pngDataUrl) pngImg.src = firstTicket.pngDataUrl;
+    if (dlBtn && firstTicket.pngDataUrl) {
+      dlBtn.download = `billet-authentique-${officialCode}.png`;
     }
 
     // Afficher le deck de résultat
@@ -1889,20 +1942,51 @@ async function handleGeneratorSubmit(e) {
     resultDeck.style.display = 'block';
     document.getElementById('result-ticket-title').textContent = count === 1 
       ? `Ticket "${officialCode}" Prêt pour le Contrôle`
-      : `${count} Tickets Générés avec Succès (Code principal : ${officialCode})`;
+      : `🎉 ${count} Billets Différents Générés avec Succès !`;
 
-    // Lot de billets si > 1
+    // Si lot > 1, afficher la galerie visuelle complète
     const batchContainer = document.getElementById('generator-batch-container');
     const batchList = document.getElementById('generator-batch-list');
-    if (count > 1 && data.tickets) {
+    const batchHeading = document.getElementById('batch-gallery-heading');
+
+    if (count > 1 && state.lastGeneratedBatch.length > 1) {
       batchContainer.style.display = 'block';
-      batchList.innerHTML = data.tickets.map(t => `
-        <div class="batch-ticket-chip">
-          <strong>${escapeHtml(t.code)}</strong>
-          <span style="font-size: 0.8125rem; color: #475569;">${escapeHtml(t.name)}</span>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="verifySpecificCode('${escapeHtml(t.code)}')">
-            <i class="fa-solid fa-shield-halved" style="color: #2563eb;"></i> Vérifier ce ticket
-          </button>
+      if (batchHeading) {
+        batchHeading.innerHTML = `<i class="fa-solid fa-layer-group" style="color: #2563eb;"></i> Galerie des ${state.lastGeneratedBatch.length} Billets Générés`;
+      }
+
+      batchList.innerHTML = state.lastGeneratedBatch.map((t, idx) => `
+        <div class="batch-ticket-card">
+          <div class="batch-card-preview-wrap" onclick="openSpecificTicketPngInBrowser(${idx})" title="Cliquez pour agrandir">
+            <img src="${t.pngDataUrl || ''}" alt="Billet ${escapeHtml(t.code)}">
+          </div>
+          <div class="batch-card-meta">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span class="batch-card-code">${escapeHtml(t.code)}</span>
+              <span class="badge badge-actif" style="font-size: 0.7rem; padding: 0.15rem 0.5rem;"><i class="fa-solid fa-check"></i> Actif</span>
+            </div>
+            <div class="batch-card-details">
+              <span><strong>${escapeHtml(t.meta?.holderName || 'Titulaire')}</strong></span>
+              <span>${escapeHtml(t.meta?.seat || 'Place')}</span>
+            </div>
+          </div>
+          <div class="batch-card-actions">
+            <button type="button" class="btn btn-primary btn-sm" onclick="verifySpecificCode('${escapeHtml(t.code)}')" style="font-weight: 700; font-size: 0.78rem;">
+              <i class="fa-solid fa-shield-halved"></i> Vérifier
+            </button>
+            <button type="button" class="btn btn-success btn-sm" onclick="saveOrShareSpecificTicket(${idx})" style="background: #059669; border-color: #059669; color: #fff; font-size: 0.78rem; font-weight: 700;" title="Enregistrer dans Photos / Galerie">
+              <i class="fa-solid fa-mobile-screen-button"></i> Galerie
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="downloadSpecificTicketPng(${idx})" style="font-size: 0.78rem;" title="Télécharger le fichier PNG">
+              <i class="fa-solid fa-download"></i> PNG
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openSpecificTicketPngInBrowser(${idx})" style="font-size: 0.78rem;" title="Ouvrir en plein écran">
+              <i class="fa-solid fa-arrow-up-right-from-square"></i> Voir
+            </button>
+          </div>
+          <div style="font-size: 0.7rem; color: #94a3b8; text-align: center;">
+            📱 <em>Appui long sur l'image pour l'enregistrer dans Photos</em>
+          </div>
         </div>
       `).join('');
     } else {
@@ -2037,6 +2121,203 @@ function exportGeneratedBatchCsv() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
   showToast("Fichier CSV téléchargé avec succès !", "success");
+}
+
+// Télécharger tous les billets PNG du lot séquentiellement
+async function downloadAllBatchTicketsPng() {
+  if (!state.lastGeneratedBatch || state.lastGeneratedBatch.length === 0) {
+    showToast("Aucun lot de billets à télécharger.", "warning");
+    return;
+  }
+  showToast(`Téléchargement de ${state.lastGeneratedBatch.length} billets en cours...`, "info");
+  for (let i = 0; i < state.lastGeneratedBatch.length; i++) {
+    downloadSpecificTicketPng(i);
+    await new Promise(r => setTimeout(r, 450));
+  }
+  showToast("Tous les billets PNG ont été téléchargés !", "success");
+}
+
+// Enregistrer ou partager tous les billets du lot (Mobile Galerie)
+async function saveOrShareAllBatchTickets() {
+  if (!state.lastGeneratedBatch || state.lastGeneratedBatch.length === 0) {
+    showToast("Aucun lot de billets à enregistrer.", "warning");
+    return;
+  }
+
+  try {
+    const files = [];
+    for (const t of state.lastGeneratedBatch) {
+      if (t.pngDataUrl) {
+        const parts = t.pngDataUrl.split(',');
+        const bstr = atob(parts[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: 'image/png' });
+        const filename = `billet-authentique-${t.code}.png`;
+        files.push(new File([blob], filename, { type: 'image/png' }));
+      }
+    }
+
+    if (files.length > 0 && navigator.canShare && navigator.canShare({ files })) {
+      await navigator.share({
+        files,
+        title: `Lot de ${files.length} Billets Authentiques`,
+        text: `Voici vos ${files.length} billets officiels certifiés pour le contrôle.`
+      });
+      showToast("Billets enregistrés / partagés dans la galerie !", "success");
+      return;
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') return;
+    console.warn("Partage groupé non supporté :", err);
+  }
+
+  // Fallback : télécharger tous les PNG
+  downloadAllBatchTicketsPng();
+}
+
+// Télécharger le PNG d'un billet spécifique du lot
+function downloadSpecificTicketPng(index) {
+  const t = state.lastGeneratedBatch && state.lastGeneratedBatch[index];
+  if (!t || !t.pngDataUrl) {
+    showToast("Image non disponible pour ce billet.", "warning");
+    return;
+  }
+
+  const filename = `billet-authentique-${t.code}.png`;
+  try {
+    const parts = t.pngDataUrl.split(',');
+    const bstr = atob(parts[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    const blob = new Blob([u8arr], { type: 'image/png' });
+    const blobUrl = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+  } catch (e) {
+    const a = document.createElement('a');
+    a.href = t.pngDataUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+}
+
+// Enregistrer dans la galerie mobile un billet spécifique du lot
+async function saveOrShareSpecificTicket(index) {
+  const t = state.lastGeneratedBatch && state.lastGeneratedBatch[index];
+  if (!t || !t.pngDataUrl) {
+    showToast("Image non disponible pour ce billet.", "warning");
+    return;
+  }
+
+  const filename = `billet-authentique-${t.code}.png`;
+  try {
+    const parts = t.pngDataUrl.split(',');
+    const bstr = atob(parts[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    const blob = new Blob([u8arr], { type: 'image/png' });
+    const file = new File([blob], filename, { type: 'image/png' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: `Billet Authentique ${t.code}`,
+        text: `Billet Officiel - Code : ${t.code}`
+      });
+      showToast("Billet enregistré dans la galerie !", "success");
+      return;
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') return;
+  }
+  downloadSpecificTicketPng(index);
+}
+
+// Ouvrir en plein écran dans un nouvel onglet un billet spécifique
+function openSpecificTicketPngInBrowser(index) {
+  const t = state.lastGeneratedBatch && state.lastGeneratedBatch[index];
+  if (!t || !t.pngDataUrl) return;
+
+  const newWin = window.open('');
+  if (newWin) {
+    newWin.document.write(`
+      <!DOCTYPE html>
+      <html lang="fr">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Billet Authentique - ${t.code}</title>
+        <style>
+          body {
+            margin: 0;
+            background: #090d16;
+            color: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 24px;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          }
+          img {
+            max-width: 95%;
+            max-height: 75vh;
+            height: auto;
+            border-radius: 14px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            border: 2px solid #334155;
+          }
+          .actions {
+            margin-top: 24px;
+            display: flex;
+            gap: 12px;
+          }
+          button {
+            background: #2563eb;
+            color: #ffffff;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+          }
+          button:hover { background: #1d4ed8; }
+          button.secondary { background: #334155; }
+        </style>
+      </head>
+      <body>
+        <img src="${t.pngDataUrl}" alt="${t.code}">
+        <div class="actions">
+          <button onclick="window.print()">🖨️ Imprimer ce Billet</button>
+          <button class="secondary" onclick="window.close()">✕ Fermer</button>
+        </div>
+      </body>
+      </html>
+    `);
+    newWin.document.close();
+  }
 }
 
 // ==========================================================================
@@ -2652,4 +2933,12 @@ window.testScanGeneratedTicket = testScanGeneratedTicket;
 window.printGeneratedPass = printGeneratedPass;
 window.shareGeneratedTicketWhatsApp = shareGeneratedTicketWhatsApp;
 window.exportGeneratedBatchCsv = exportGeneratedBatchCsv;
+window.adjustTicketCount = adjustTicketCount;
+window.setTicketCount = setTicketCount;
+window.syncCountPills = syncCountPills;
+window.downloadAllBatchTicketsPng = downloadAllBatchTicketsPng;
+window.saveOrShareAllBatchTickets = saveOrShareAllBatchTickets;
+window.downloadSpecificTicketPng = downloadSpecificTicketPng;
+window.saveOrShareSpecificTicket = saveOrShareSpecificTicket;
+window.openSpecificTicketPngInBrowser = openSpecificTicketPngInBrowser;
 

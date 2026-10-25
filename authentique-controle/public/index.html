@@ -320,11 +320,17 @@
               <div class="form-group">
                 <label for="gen-holder-name" class="form-label">Nom du Bénéficiaire (Optionnel)</label>
                 <input type="text" id="gen-holder-name" class="form-input" placeholder="Ex : Mamadou Diallo" value="Mamadou Diallo">
+                <small style="color: #64748b; font-size: 0.72rem; display: block; margin-top: 0.2rem;">
+                  Pour plusieurs billets : entrez un nom ou plusieurs séparés par une virgule.
+                </small>
               </div>
 
               <div class="form-group">
                 <label for="gen-seat" class="form-label">Place / Zone réservée</label>
-                <input type="text" id="gen-seat" class="form-input" placeholder="Ex : Carré VIP - Rangée 1" value="Carré VIP - Place A-01">
+                <input type="text" id="gen-seat" class="form-input" placeholder="Ex : Carré VIP - Place A-01" value="Carré VIP - Place A-01">
+                <small style="color: #64748b; font-size: 0.72rem; display: block; margin-top: 0.2rem;">
+                  Numérotation séquentielle automatique pour les lots (Place A-01, A-02...).
+                </small>
               </div>
             </div>
 
@@ -335,13 +341,24 @@
               </div>
 
               <div class="form-group">
-                <label for="gen-count" class="form-label">Quantité de billets</label>
-                <select id="gen-count" class="form-select">
-                  <option value="1" selected>1 Billet individuel</option>
-                  <option value="5">Lot de 5 Billets</option>
-                  <option value="10">Lot de 10 Billets</option>
-                  <option value="25">Lot de 25 Billets</option>
-                </select>
+                <label for="gen-count" class="form-label">
+                  <i class="fa-solid fa-calculator" style="color: #2563eb;"></i> Nombre de billets à générer
+                </label>
+                <div style="display: flex; gap: 0.4rem; align-items: center;">
+                  <button type="button" class="btn btn-secondary" onclick="adjustTicketCount(-1)" style="padding: 0.45rem 0.85rem; font-weight: 800; font-size: 1.15rem; line-height: 1;">−</button>
+                  <input type="number" id="gen-count" class="form-input" min="1" max="50" value="1" style="text-align: center; font-weight: 800; font-size: 1.1rem; width: 85px;" onchange="syncCountPills()">
+                  <button type="button" class="btn btn-secondary" onclick="adjustTicketCount(1)" style="padding: 0.45rem 0.85rem; font-weight: 800; font-size: 1.15rem; line-height: 1;">+</button>
+                </div>
+                <div class="count-presets-row" style="display: flex; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.45rem;">
+                  <button type="button" class="count-pill active" onclick="setTicketCount(1)">1 billet</button>
+                  <button type="button" class="count-pill" onclick="setTicketCount(3)">3 billets</button>
+                  <button type="button" class="count-pill" onclick="setTicketCount(5)">5 billets</button>
+                  <button type="button" class="count-pill" onclick="setTicketCount(10)">10 billets</button>
+                  <button type="button" class="count-pill" onclick="setTicketCount(20)">20 billets</button>
+                </div>
+                <small style="color: #64748b; font-size: 0.75rem; display: block; margin-top: 0.35rem;">
+                  💡 Chaque billet reçoit son propre code unique, sa place et son QR code vérifiable.
+                </small>
               </div>
             </div>
 
@@ -537,18 +554,33 @@
             </button>
           </div>
 
-          <!-- Si plusieurs tickets ont été générés en lot -->
-          <div id="generator-batch-container" style="display: none; margin-top: 1.5rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
-              <h4 style="font-size: 1rem; font-weight: 700; color: #0f172a;">
-                <i class="fa-solid fa-layer-group" style="color: #2563eb;"></i> Galerie des tickets du lot
-              </h4>
-              <button type="button" class="btn btn-secondary btn-sm" onclick="exportGeneratedBatchCsv()">
-                <i class="fa-solid fa-file-csv"></i> Télécharger la liste (CSV)
-              </button>
+          <!-- Si plusieurs tickets ont été générés en lot : Galerie Visuelle Complète -->
+          <div id="generator-batch-container" style="display: none; margin-top: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-xl); padding: 1.25rem; box-shadow: var(--shadow-sm);">
+              <div>
+                <h4 id="batch-gallery-heading" style="font-size: 1.15rem; font-weight: 800; color: #0f172a; margin: 0 0 0.35rem; display: flex; align-items: center; gap: 0.5rem;">
+                  <i class="fa-solid fa-layer-group" style="color: #2563eb;"></i> Galerie des Billets Générés
+                </h4>
+                <p style="font-size: 0.85rem; color: #64748b; margin: 0;">
+                  Chaque billet ci-dessous a son propre QR code et son code infalsifiable. Vous pouvez les enregistrer dans votre galerie ou les vérifier.
+                </p>
+              </div>
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button type="button" class="btn btn-success btn-sm" onclick="saveOrShareAllBatchTickets()" style="font-weight: 700; background: #059669; border-color: #059669; color: #ffffff;">
+                  <i class="fa-solid fa-mobile-screen-button"></i> Enregistrer Tout dans la Galerie
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="downloadAllBatchTicketsPng()" style="font-weight: 700;">
+                  <i class="fa-solid fa-download"></i> Tout Télécharger en PNG
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="exportGeneratedBatchCsv()" style="font-weight: 600;">
+                  <i class="fa-solid fa-file-csv"></i> Liste (CSV)
+                </button>
+              </div>
             </div>
-            <div class="generator-batch-scroll-row" id="generator-batch-list">
-              <!-- Rempli dynamiquement -->
+
+            <!-- Grille responsive des cartes billets -->
+            <div class="batch-tickets-grid" id="generator-batch-list">
+              <!-- Rempli dynamiquement avec les images PNG et boutons -->
             </div>
           </div>
         </div>
@@ -1157,6 +1189,6 @@
   <!-- Bibliothèques de scan, QR local et application -->
   <script src="/js/html5-qrcode.min.js"></script>
   <script src="/js/qrious.min.js"></script>
-  <script src="/js/app.js?v=3.5"></script>
+  <script src="/js/app.js?v=3.6"></script>
 </body>
 </html>

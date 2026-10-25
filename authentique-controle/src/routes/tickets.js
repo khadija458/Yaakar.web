@@ -141,11 +141,41 @@ router.post('/generate', requireAuth, (req, res) => {
         }
       }
 
+      // Attribution personnalisée et distincte pour chaque billet du lot
+      let currentHolder = cleanHolder;
+      if (ticketCount > 1) {
+        const holdersList = cleanHolder ? cleanHolder.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean) : [];
+        if (holdersList.length > i) {
+          currentHolder = holdersList[i];
+        } else if (holdersList.length > 0) {
+          currentHolder = `${holdersList[0]} (#${i + 1})`;
+        } else {
+          currentHolder = `Bénéficiaire #${i + 1}`;
+        }
+      } else if (!currentHolder) {
+        currentHolder = 'Titulaire Officiel';
+      }
+
+      let currentSeat = cleanSeat;
+      if (ticketCount > 1) {
+        if (cleanSeat) {
+          if (/\d+$/.test(cleanSeat)) {
+            currentSeat = cleanSeat.replace(/\d+$/, (m) => String(parseInt(m, 10) + i).padStart(m.length, '0'));
+          } else {
+            currentSeat = `${cleanSeat} - N°${i + 1}`;
+          }
+        } else {
+          currentSeat = `Place #${String(i + 1).padStart(2, '0')}`;
+        }
+      } else if (!currentSeat) {
+        currentSeat = 'Accès Général';
+      }
+
       // Format description with metadata
       const descParts = [];
       descParts.push(`Catégorie : ${cleanCategory}`);
-      if (cleanHolder) descParts.push(`Titulaire : ${cleanHolder}`);
-      if (cleanSeat) descParts.push(`Place : ${cleanSeat}`);
+      if (currentHolder) descParts.push(`Titulaire : ${currentHolder}`);
+      if (currentSeat) descParts.push(`Place : ${currentSeat}`);
       if (cleanPrice) descParts.push(`Tarif : ${cleanPrice}`);
       descParts.push(`Thème : ${cleanTheme}`);
       const fullDescription = descParts.join(' | ');
@@ -163,9 +193,9 @@ router.post('/generate', requireAuth, (req, res) => {
           eventName: cleanName,
           category: cleanCategory,
           theme: cleanTheme,
-          holderName: cleanHolder,
-          seat: cleanSeat,
-          price: cleanPrice
+          holderName: currentHolder,
+          seat: currentSeat,
+          price: cleanPrice || 'Standard'
         }
       });
     }
